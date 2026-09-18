@@ -1,0 +1,30 @@
+{
+  "name": "joomengine/mcp-client",
+  "description": "Standalone PHP client for database-driven JoomEngine MCP servers",
+  "type": "library",
+  "license": "GPL-3.0-or-later",
+  "require": {
+    "php": "^8.3",
+    "ext-curl": "*",
+    "ext-json": "*",
+    "mcp/sdk": "~0.8.1",
+    "nyholm/psr7": "^1.8"
+  },
+  "autoload": {
+    "psr-4": {
+      "VDM\\Joomla\\Mcp\\Client\\": "src/"
+    }
+  },
+  "scripts": {
+    "test": "php tests/run.php"
+  },
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": false
+    },
+    "sort-packages": true
+  },
+  "archive": {
+    "exclude": ["/.github", "/tests", "/build", "/vendor"]
+  }
+}
