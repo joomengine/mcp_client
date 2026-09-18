@@ -9,6 +9,7 @@
 namespace VDM\Joomla\Mcp\Client;
 
 
+use Composer\InstalledVersions;
 use Mcp\Client;
 use Mcp\Client\Transport\HttpTransport;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -49,7 +50,7 @@ final class ClientFactory
 		$http = $this->http ?? new CurlClient($connection->timeout(), $connection->maximum());
 		$factory = new Psr17Factory();
 		$client = Client::builder()
-			->setClientInfo('joomengine-mcp-client', '0.1.0-alpha.1')
+			->setClientInfo('joomengine-mcp-client', $this->version())
 			->setInitTimeout($connection->timeout())
 			->setRequestTimeout($connection->timeout())
 			->setMaxRetries(0)
@@ -58,5 +59,21 @@ final class ClientFactory
 			$factory, $factory, maxSseBufferBytes: $connection->maximum()));
 
 		return $client;
+	}
+
+	/**
+	 * Keep wire metadata aligned with Composer's installed tag or development ref.
+	 *
+	 * @return string Installed package version, or dev for an unregistered checkout.
+	 * @since 0.1.0
+	 */
+	private function version(): string
+	{
+		if (!class_exists(InstalledVersions::class) || !InstalledVersions::isInstalled('joomengine/mcp-client'))
+		{
+			return 'dev';
+		}
+
+		return InstalledVersions::getPrettyVersion('joomengine/mcp-client') ?? 'dev';
 	}
 }
