@@ -37,7 +37,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Create immutable version tag and GitHub prerelease after tests
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+      - name: Push a new tested version tag and create its GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
@@ -48,7 +52,7 @@ jobs:
             echo 'This version tag already exists; it will not be overwritten.' >&2
             exit 1
           fi
-          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --prerelease --generate-notes --title "JoomEngine MCP Client $VERSION"
