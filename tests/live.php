@@ -74,7 +74,7 @@ $inspect = static function (Client $client, string $track) use ($check, $discove
 	}
 	foreach ($prompts as $prompt)
 	{
-		$required = array_filter($prompt->arguments ?? [], static fn ($argument): bool => $argument->required);
+		$required = array_filter($prompt->arguments ?? [], static fn ($argument): bool => $argument->required === true);
 		if ($required === [])
 		{
 			$check(count($client->getPrompt($prompt->name)->messages) > 0, $track . ' renders a discovered prompt');

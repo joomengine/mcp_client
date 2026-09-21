@@ -18,3 +18,5 @@ Evidence is emitted by each test suite and retained by CI. `tests/run.php` uses 
 An installed CI success is tied to the exact component, plugin and client revisions recorded in its artifact. Do not infer production approval, JCB write acceptance or publication from isolated client checks. The component repository owns its full write/job/JCB acceptance matrix.
 
 Packagist registration is a one-time distribution setup after the reviewed package metadata reaches main. No repository code can truthfully assert that an external Packagist account has registered this package. No merge, release or publication is performed by the implementation PR.
+
+Verified initial implementation head `3319ea6`: PHP 8.3/8.4 contract CI [35612903083](https://github.com/joomengine/mcp_client/actions/runs/35612903083) and installed interoperability [35612903525](https://github.com/joomengine/mcp_client/actions/runs/35612903525) both passed. The installed runs each executed 14 live client assertions against 18 discovered tools using component `b3a75714eeadea35fbed102e4b5ba3ce021334cc`. Later commits must use their own current PR checks as the source of truth.
