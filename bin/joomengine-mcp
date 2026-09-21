@@ -1,0 +1,92 @@
+#!/usr/bin/env php
+<?php
+/**
+ * @package    JoomEngine.Mcp.Client
+ * @author     Llewellyn van der Merwe <https://dev.vdm.io>
+ * @copyright  Copyright (C) 2026 Vast Development Method. All rights reserved.
+ * @license    GNU General Public License version 3 or later; see LICENSE
+ */
+use VDM\Joomla\Mcp\Client\Bridge\StdioBridge;
+use VDM\Joomla\Mcp\Client\Configuration\SiteStore;
+use VDM\Joomla\Mcp\Client\Connection;
+
+
+ini_set('display_errors', 'stderr');
+$autoload = $GLOBALS['_composer_autoload_path'] ?? dirname(__DIR__) . '/vendor/autoload.php';
+
+if (!is_file($autoload))
+{
+	fwrite(STDERR, "Install the Composer dependencies before running joomengine-mcp.\n");
+	exit(1);
+}
+
+require $autoload;
+
+try
+{
+	$arguments = array_slice($argv, 1);
+	$command = array_shift($arguments) ?? 'help';
+	$directory = getenv('JOOMENGINE_MCP_CONFIG_DIR');
+	$directory = is_string($directory) && $directory !== '' ? $directory : null;
+
+	if ($command === 'help' || $command === '--help' || $command === '-h')
+	{
+		fwrite(STDERR, "Usage:\n  joomengine-mcp serve NAME\n  joomengine-mcp connect HTTPS_BASE_URL\n  joomengine-mcp configure NAME HTTPS_BASE_URL\n  joomengine-mcp sites\n  joomengine-mcp remove NAME\n\nconfigure and connect obtain the token from JOOMENGINE_MCP_TOKEN.\nNamed sites use a private file under XDG_CONFIG_HOME/joomengine-mcp;\nJOOMENGINE_MCP_CONFIG_DIR selects an explicit private directory.\nserve/connect reserve stdout exclusively for MCP JSON-RPC.\n");
+		exit(0);
+	}
+
+	if ($command === 'configure' && count($arguments) === 2)
+	{
+		$token = getenv('JOOMENGINE_MCP_TOKEN');
+
+		if (!is_string($token) || $token === '')
+		{
+			throw new RuntimeException('Missing token.');
+		}
+
+		(new SiteStore($directory))->save($arguments[0], $arguments[1], $token);
+		fwrite(STDERR, "Site configuration saved.\n");
+		exit(0);
+	}
+
+	if ($command === 'sites' && $arguments === [])
+	{
+		foreach ((new SiteStore($directory))->sites() as $name => $site)
+		{
+			fwrite(STDERR, $name . "\t" . $site . "\n");
+		}
+		exit(0);
+	}
+
+	if ($command === 'remove' && count($arguments) === 1)
+	{
+		(new SiteStore($directory))->remove($arguments[0]);
+		fwrite(STDERR, "Site configuration removed.\n");
+		exit(0);
+	}
+
+	if (!in_array($command, ['serve', 'connect'], true) || count($arguments) !== 1)
+	{
+		fwrite(STDERR, "Invalid arguments. Run joomengine-mcp help. Credentials are never accepted as arguments.\n");
+		exit(2);
+	}
+
+	$connection = $command === 'serve'
+		? (new SiteStore($directory))->connection($arguments[0])
+		: Connection::fromEnvironment($arguments[0]);
+	$bridge = new StdioBridge($connection);
+
+	if (function_exists('pcntl_async_signals'))
+	{
+		pcntl_async_signals(true);
+		pcntl_signal(SIGTERM, static fn () => $bridge->stop());
+		pcntl_signal(SIGINT, static fn () => $bridge->stop());
+	}
+
+	exit($bridge->run(STDIN, STDOUT, STDERR));
+}
+catch (Throwable)
+{
+	fwrite(STDERR, "MCP client could not start or update configuration. Check the HTTPS URL, token environment variable and private configuration permissions.\n");
+	exit(1);
+}

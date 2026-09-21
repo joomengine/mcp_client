@@ -24,18 +24,19 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: curl, json, fileinfo
+          extensions: curl, json, fileinfo, posix, pcntl
           tools: composer:v2
           coverage: none
       - run: composer validate --strict --no-check-publish
       - run: composer install --no-interaction --prefer-dist --no-progress
       - name: PHP syntax
         run: find src tests examples -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
+      - run: php -l bin/joomengine-mcp
       - name: Standalone client behavioural contracts
         run: |
           set -euo pipefail
           mkdir -p build
-          php tests/run.php | tee build/contracts.log
+          composer test | tee build/contracts.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
