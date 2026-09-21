@@ -1,11 +1,21 @@
-name: Tested client prerelease
+name: Tested client release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Prerelease version without v, for example 0.1.0-alpha.1'
+        description: 'Version without v, for example 0.1.0 or 0.1.0-rc.1'
         required: true
+        type: string
+      component_ref:
+        description: Tested installed component tag or commit
+        required: true
+        default: main
+        type: string
+      plugin_ref:
+        description: Tested console plugin tag or commit
+        required: true
+        default: main
         type: string
 
 permissions:
@@ -19,20 +29,28 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Require a reviewed main-branch prerelease
+      - name: Require a main-branch semantic version
         env:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
-          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(alpha|beta|rc)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]
   tests:
     needs: validate
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
+  installed:
+    needs: validate
+    uses: ./.github/workflows/installed.yml
+    with:
+      component_ref: ${{ inputs.component_ref }}
+      plugin_ref: ${{ inputs.plugin_ref }}
+    permissions:
+      contents: read
   release:
-    needs: [validate, tests]
+    needs: [validate, tests, installed]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -41,7 +59,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: true
-      - name: Push a new tested version tag and create its GitHub prerelease
+      - name: Push a new tested version tag and create its GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
@@ -54,5 +72,7 @@ jobs:
           fi
           git tag "$TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG"
+          release_flags=()
+          if [[ "$VERSION" == *-* ]]; then release_flags+=(--prerelease); fi
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --prerelease --generate-notes --title "JoomEngine MCP Client $VERSION"
+            "${release_flags[@]}" --generate-notes --title "JoomEngine MCP Client $VERSION"

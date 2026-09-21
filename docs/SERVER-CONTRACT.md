@@ -1,31 +1,31 @@
 # Installed server contract and client handoff
 
-## Source baseline
+## Endpoint and identity
 
-Server integration was inspected at `joomengine/mcp_component@a3fb48c680c520fe3b81c6e40fc8aa8cc427f36e` (building on `89353e8905bdfabe9f874d1f00e8cc9384c894e7`) and console plugin `joomengine/mcp_plugin@fb6a72a515859d198b47acb6fdac932e5dae92ab`. These are development commits, not released compatibility guarantees.
+The component registers `v1/joomengine-mcp`. The client derives `<HTTPS Joomla installation base>/api/index.php/v1/joomengine-mcp`, retaining installation subdirectories. It never follows redirects, guesses another host/path, or accepts a tool-provided endpoint override.
 
-The registered server route is `v1/joomengine-mcp` in `plugins/webservices/joomengine_mcp/src/Extension/JoomEngineMcp.php`. The client derives `<HTTPS Joomla installation base>/api/index.php/v1/joomengine-mcp`; a Joomla subdirectory remains part of the base. It does not search alternate hosts, follow redirects, guess a reverse-proxy path or accept an AI-provided endpoint override. A changed public path requires a reviewed compatibility change here and in server docs/tests.
+Each exchange carries the configured user's `X-Joomla-Token`. The installed server owns Joomla API login, `mcp.access`, viewing levels, asset rules, per-action/native permissions and enabled-extension restrictions. Session IDs and confirmation grants never replace authentication. This is static-token support, not OAuth.
 
-## Identity and capabilities
+The component's webservices routing glue handles HTTP. The separate console plugin handles direct local Joomla stdio; the external bridge does not need it for HTTP and cannot acquire its trusted local-console identity.
 
-Use `X-Joomla-Token` with the authenticated user's Joomla API token. The server owns API login checks, `mcp.access`, viewing levels, asset rules, per-action permissions, native target ACL, publication and enabled-extension constraints. A server session ID or write grant is never a substitute for authentication. This is static token support, not an OAuth authorization server.
+## Discovery and transport
 
-HTTP requests use the component plus its webservices routing glue; the local console plugin is not an HTTP client dependency. The console plugin supplies trusted local server stdio only. A remote stdio bridge running on a developer workstation will still send restricted HTTP requests and cannot select the server's trusted CLI identity.
+`ClientFactory::connect()` returns the official PHP SDK client. The remote executable is a generic JSON-RPC proxy. Tools, resources, resource templates, prompts, schemas, pagination cursors and result data are supplied by the server; neither client path contains a Joomla/JCB catalogue.
 
-`ClientFactory::connect()` returns the official SDK client. Tools, resources, prompts and schemas are received from the current server and are not baked into this package. Preserve pagination cursors and protocol errors. Results can contain untrusted Joomla/JCB content; they are data, not permission to approve a write.
+The executable forwards initialization unchanged, stores the server-negotiated protocol revision and session, and carries them on later exchanges. It forwards bounded JSON and finite SSE responses, including notifications and structured content. Multiple HTTP requests can remain in flight, so cancellation notifications are not delayed behind an ordinary call. Two transport slots are reserved for control traffic. An exhausted request capacity returns an error before forwarding an additional ordinary request.
 
-## Implemented and pending transport scope
+The installed component currently returns finite SDK Streamable HTTP responses. The bridge does not open an unrelated persistent GET event stream, reconnect automatically, replay event IDs, invent subscriptions, or implement OAuth/sampling support that the server has not advertised. A future server transport contract must be tested before enabling such behavior.
 
-The current factory uses the SDK's initialization-based HTTP transport and bounded synchronous responses; its tests exercise that handshake using the real SDK and a recording HTTP substitute. No live Joomla exchange, persistent SSE connection, new stateless protocol revision, OAuth flow, server-initiated sampling or remote stdio interoperability is certified by these tests. The server's broader SDK capabilities do not automatically prove client-side support.
+Default bounds are 30 seconds and 8 MiB, configurable through `Connection` to 1–120 seconds and 1 KiB–16 MiB. TLS verification cannot be disabled through client configuration. Redirects, implicit proxy/netrc credentials and automatic retries are disabled. HTTP errors and malformed/mismatched responses produce safe protocol errors without upstream bodies, headers or tokens in diagnostics.
 
-Default exchange timeout is 30 seconds (configurable 1–120); default body cap is 8 MiB (configurable 1 KiB–16 MiB). The cURL transport refuses redirects, implicit proxy/netrc credentials and TLS bypass. The endpoint adapter stops HTTP errors instead of treating an HTML login/error page as MCP or retrying it. A timeout after a write is uncertain, not proof of rollback.
+## Writes and durable jobs
 
-JCB compilation/package jobs may outlive one HTTP request. Their durable job identifiers, status, cancellation, artifact access and recovery must be defined by the server. Do not increase timeouts indefinitely or replay compilation because a connection ended. Client support for those contracts is pending the server implementation.
+Consent and confirmed-write rules remain on the server. Responses may contain untrusted Joomla/JCB content and do not authorize another operation. Network failures and request cancellation cannot prove rollback.
 
-## Acceptance before stable release
+Long-running compilation/package operations use server-defined job identifiers, status/cancel operations and artifact resources. The client discovers these like any other capability and preserves their structured data. It does not reinterpret job IDs, use unbounded HTTP timeouts or repeat a compile after losing its response. Request cancellation is forwarded as a notification; durable job cancellation must follow the server's discovered operation and be verified by reading its resulting state.
 
-Test a packaged component installation at a domain root and at a Joomla subdirectory; authenticate authorized, unauthorized, expired/revoked and cross-site tokens. Verify protocol negotiation, complete paginated discovery, tool success/errors, resources/prompts, principal-isolated sessions, confirmed writes and uncertain outcomes with real persisted read-back.
+## Acceptance
 
-Test Joomla core with JCB absent and with JCB installed/enabled. Verify JCB capability changes appear without client catalogue changes; cover ordinary entity API calls, high-risk package operations and compiler/job results without allowing an HTTP-to-privileged-CLI bypass. Finally implement and test the remote stdio bridge's framing, stderr-only diagnostics, notifications, cancellation, byte bounds and clean shutdown.
+Client CI verifies SDK exchange behavior, configuration isolation, JSON-RPC framing, pagination, resource/prompt forwarding, SSE events, concurrent cancellation, TLS trust/hostname rejection, redirects, byte/time limits and clean shutdown. These fixture suites do not claim to be live Joomla tests.
 
-Record exact component/plugin/client versions and test evidence. A passing isolated SDK test or a generated action count is not a substitute for this matrix.
+Installed interoperability runs build actual component/plugin packages, install them on a disposable Joomla fixture and use a trusted local HTTPS reverse proxy. `tests/live.php` tests both direct SDK HTTP and the actual remote executable, complete discovery, discovered read calls and invalid-token rejection. The component fixture owns root/subdirectory coverage, ACL changes, confirmed writes, persistence/read-back, lifecycle, and JCB compiler/job acceptance. Source revisions are recorded in CI artifacts.

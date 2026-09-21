@@ -1,20 +1,14 @@
 # JoomEngine MCP Client
 
-Standalone PHP connection library for an installed JoomEngine MCP server.
+Standalone PHP client and remote stdio bridge for an installed JoomEngine MCP server.
 
-**Repository:** `joomengine/mcp_client`  
-**Composer package:** `joomengine/mcp-client`  
+**Composer package:** `joomengine/mcp-client`
 **Namespace:** `VDM\Joomla\Mcp\Client`
+**Executable:** `joomengine-mcp`
 
-## Current implementation
+Requires PHP 8.3+, cURL and JSON. Persistent named-site configuration also requires POSIX ownership support (`ext-posix`). `ext-pcntl` enables orderly signal handling. No local Joomla installation, component classes or copied Joomla/JCB catalogue are needed.
 
-`Connection` accepts a Joomla installation base URL (including a subdirectory) and a separately supplied Joomla API token. `ClientFactory` connects the official PHP MCP SDK to that site's standard endpoint. The returned SDK client supports tool/resource/prompt discovery and calls without a local Joomla installation or a copied Joomla/JCB action catalogue.
-
-The connection library and its isolated behavioural tests are implemented. Final interoperability with the installed component is pending. The planned `joomengine-mcp` remote stdio executable is **not implemented or advertised as an available binary yet**. Packagist registration/publication has not been performed. See [implementation status](docs/IMPLEMENTATION.md) and [server contract](docs/SERVER-CONTRACT.md).
-
-## Try the development checkout
-
-Requires PHP 8.3+, cURL and the Composer-resolved PHP dependencies. From this repository checkout:
+## Run from a development checkout
 
 ```bash
 composer install
@@ -23,11 +17,16 @@ read -r -p 'Joomla HTTPS base URL: ' JOOMENGINE_MCP_SITE
 read -r -s -p 'Joomla API token: ' JOOMENGINE_MCP_TOKEN
 printf '\n'
 export JOOMENGINE_MCP_TOKEN
-php examples/discover.php "$JOOMENGINE_MCP_SITE"
+php bin/joomengine-mcp configure production "$JOOMENGINE_MCP_SITE"
 unset JOOMENGINE_MCP_TOKEN
+php bin/joomengine-mcp serve production
 ```
 
-Discovery requires an installed and configured MCP component endpoint; a bare Joomla installation or the console plugin alone is insufficient. The token must belong to a Joomla user allowed to use the API and MCP. The console plugin is not required for a remote HTTP client, but is required for direct local MCP serving on the Joomla server.
+The final command speaks newline-delimited MCP JSON-RPC on stdin/stdout; launch it from your MCP application's stdio configuration. For a Composer-installed executable, use `joomengine-mcp serve production`. The `configure` command saves the site URL and separately supplied token in an owner-only configuration file; it never accepts a token in command-line arguments. `sites` lists names and URLs, and `remove NAME` removes one saved site. Configuration messages and all diagnostics go to stderr.
+
+By default named sites are stored beneath `$XDG_CONFIG_HOME/joomengine-mcp`, or `$HOME/.config/joomengine-mcp` when XDG is unset. `JOOMENGINE_MCP_CONFIG_DIR` selects an explicit private directory. Directories must be mode 0700 and credential files mode 0600; unsafe owners, links and shared writable paths are rejected. Writes are locked and atomic. The file is plaintext protected by filesystem permissions, not encrypted storage.
+
+For an ephemeral connection use `joomengine-mcp connect HTTPS_BASE_URL` with `JOOMENGINE_MCP_TOKEN` in the environment. `php examples/discover.php HTTPS_BASE_URL` runs the PHP SDK discovery example.
 
 ## PHP API
 
@@ -40,8 +39,6 @@ $client = (new ClientFactory())->connect(Connection::fromEnvironment($siteUrl));
 try
 {
     $tools = $client->listTools();
-    // Select a discovered tool and validate arguments against its inputSchema.
-    // Tool calls, resources and prompts use the returned Mcp\Client API.
 }
 finally
 {
@@ -49,14 +46,20 @@ finally
 }
 ```
 
-The executable discovery example is complete and accepts the site URL as its sole argument. Credentials remain in `JOOMENGINE_MCP_TOKEN`; do not put them into URLs or log connection headers. Default transport bounds are 30 seconds and 8 MiB, redirects and retries are disabled, and TLS verification remains enabled. Failed writes can have persisted remotely: reconcile them through the server rather than replaying them blindly.
+The returned official SDK client supports tools, resources, resource templates and prompts. Preserve `nextCursor` when listing multiple pages and use each discovered input schema when constructing arguments. `Configuration\SiteStore::connection($name)` loads the same `Connection` used by the executable.
 
-## Repository responsibilities
+The base URL may contain a Joomla subdirectory. The component endpoint is derived as `/api/index.php/v1/joomengine-mcp`; credentials, query strings, ambiguous paths and redirects are refused. TLS verification stays enabled. Default transport bounds are 30 seconds and 8 MiB, with no retries. A failed write may have persisted remotely: reconcile it with the server before submitting anything again.
 
-`mcp_component` owns the installed server, database definitions, administration, HTTP authentication/ACL and execution. `mcp_plugin` owns the local Joomla console adapter. **This repository alone owns the external client and remote stdio bridge.** The server's independent outbound Joomla API transport is not an external MCP client and does not depend on this package.
+## Protocol and jobs
 
-Joomla Component Builder is a mandatory first-class server integration alongside Joomla core. Its API, compiler and package command capabilities must be discovered from the server. Adding or updating JCB database definitions must not require hard-coding JCB commands or schemas into this client.
+The stdio bridge forwards the original initialization, request IDs, negotiated protocol revision, pagination, results and notifications. It supports bounded JSON and finite SSE responses from the component, concurrent cancellation notifications, and session deletion on orderly shutdown. It does not run a persistent GET event stream or manufacture server capabilities. Output backpressure and request concurrency are bounded.
 
-## Release automation
+Joomla and JCB operations, confirmation grants, durable jobs, cancellation and artifacts are defined by the installed server and discovered as normal tools/resources. The bridge preserves their structured data without shipping business logic or an action allowlist. Closing a connection or sending a request cancellation notification does not itself prove a job was cancelled; inspect the server's job state.
 
-[Release instructions](docs/RELEASE.md) describe the tested main-branch prerelease workflow and the one-time Packagist/GitHub setup. No version is published by this development PR. Stable release and remote stdio completion follow the installed-server acceptance matrix.
+## Repositories and verification
+
+`mcp_component` owns the installed server, database definitions, authentication, ACL and execution. `mcp_plugin` owns direct local Joomla console serving. This repository owns the external client and remote bridge, which always retain HTTP authority.
+
+`composer test` runs SDK contracts, secure configuration checks, process-level framing checks and a real HTTPS fixture. Tests require Node.js and OpenSSL in addition to PHP. The installed interoperability workflow builds and installs the actual component/plugin and tests both this library and this executable over trusted HTTPS. [Implementation evidence](docs/IMPLEMENTATION.md) distinguishes these layers.
+
+See [the server contract](docs/SERVER-CONTRACT.md) and [release instructions](docs/RELEASE.md). This development branch does not itself publish a Composer package or register it on Packagist.
