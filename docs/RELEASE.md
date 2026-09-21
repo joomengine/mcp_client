@@ -1,19 +1,19 @@
 # Composer distribution and release automation
 
-Composer consumes this Git repository as package `joomengine/mcp-client`; do not add a hard-coded version property to composer.json. Version tags identify releases.
+Composer package `joomengine/mcp-client` is versioned by Git tags, with no hard-coded version property. The package registers `bin/joomengine-mcp`; library and executable versions are independent of component/plugin versions.
 
 ## One-time Packagist setup
 
-After the main branch contains the reviewed composer.json, register the repository on Packagist under the intended package name. Configure Packagist's GitHub integration with access to `joomengine/mcp_client`, or its documented authenticated push webhook. Verify an indexed test prerelease and Composer resolution. No Packagist account, registration, webhook or package publication has been configured by this development PR.
+After the reviewed `composer.json` is on main, register `joomengine/mcp_client` on Packagist and configure Packagist's GitHub integration or authenticated push webhook. Verify the package name and an indexed test prerelease through Composer. This development PR does not configure an external Packagist account and does not publish a version.
 
-References: https://packagist.org/about and https://getcomposer.org/doc/04-schema.md. Packagist indexes tags; it is not an archive-upload step for each release. Do not print Packagist credentials in CI or place them in composer.json.
+References: https://packagist.org/about and https://getcomposer.org/doc/04-schema.md. Packagist indexes Git tags; releases do not require uploading an archive or committing credentials.
 
-## Implemented workflow
+## Tested release workflow
 
-After review/merge, run **Tested client prerelease** from the main branch and supply a prerelease version without `v`. The workflow validates the version, runs the reusable PHP 8.3/8.4 CI against that commit, then creates a new tag and GitHub prerelease. Existing tags are never replaced. Packagist's configured integration indexes the resulting Git tag automatically; verify indexing rather than assuming it.
+Run **Tested client release** on main with a semantic version without `v`, plus the component and console-plugin refs to test. Prefer immutable tags or full commit IDs for the dependencies. The workflow accepts stable versions and `alpha.N`, `beta.N` or `rc.N` prereleases.
 
-This workflow is intentionally operator-triggered and prerelease-only while server interoperability is incomplete. It does not publish from PRs or silently turn every main commit into a stable release. If release creation fails after tagging, inspect the existing tag and finish its release rather than moving the tag.
+Before creating a tag, it runs the full PHP 8.3/8.4 contract/TLS suite and the installed Joomla interoperability workflow using that same client commit. The installed workflow records all three actual commit IDs. Any failed job prevents tagging. Releases cannot run from pull requests, and existing tags are never moved or overwritten.
 
-## Stable release gate
+After testing, the workflow creates the tag and matching GitHub release, setting prerelease status when appropriate. Packagist's configured integration should index the tag; verify that externally rather than assuming it occurred. If release creation fails after tagging, inspect the existing tag and complete its release without moving the tag.
 
-Complete the installed component/JCB acceptance matrix and remote stdio bridge first, record exact tested server and client commits, add the stable-release acceptance job, and only then extend the version policy to stable tags. That remaining work is explicit, not a current claim that a fully certified package is available. Client versions are independent of the Joomla component/plugin package versions.
+For local installed acceptance, supply `JOOMENGINE_MCP_URL` and `JOOMENGINE_MCP_TOKEN` and run `php tests/live.php`; a private test CA can be configured through PHP's `curl.cainfo`. Missing configuration fails. Full component/JCB write and job acceptance remains owned by the installed component's fixture, rather than a duplicated business-operation catalogue in this package.

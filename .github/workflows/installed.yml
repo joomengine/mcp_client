@@ -1,0 +1,94 @@
+name: Installed client interoperability
+
+on:
+  pull_request:
+  push:
+    branches: [main, feature/standalone-php-client]
+  workflow_call:
+    inputs:
+      component_ref:
+        type: string
+        default: feature/jcb-mcp-runtime
+      plugin_ref:
+        type: string
+        default: feature/jcb-mcp-runtime
+
+permissions:
+  contents: read
+
+jobs:
+  installed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: mcp_fixture
+          MYSQL_USER: mcp_test
+          MYSQL_PASSWORD: disposable-test-password
+          MYSQL_ROOT_PASSWORD: disposable-root-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -pdisposable-root-password"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: client
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_component
+          ref: ${{ inputs.component_ref || 'feature/jcb-mcp-runtime' }}
+          path: component
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_plugin
+          ref: ${{ inputs.plugin_ref || 'feature/jcb-mcp-runtime' }}
+          path: plugin
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, intl, json, mbstring, mysqli, pdo_mysql, simplexml, sodium, xml, zip, posix, pcntl
+          tools: composer:v2
+          coverage: none
+      - name: Install the actual client dependencies
+        working-directory: client
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Build the installed component package
+        working-directory: component
+        run: bash tools/build.sh
+      - name: Record exact source revisions
+        run: |
+          mkdir -p component/build/evidence
+          for repository in client component plugin; do
+            printf '%s ' "$repository"
+            git -C "$repository" rev-parse HEAD
+          done | tee component/build/evidence/source-revisions.log
+      - name: Exercise packaged Joomla and client through authenticated HTTPS
+        working-directory: component
+        env:
+          MCP_TEST_ALLOW_DESTRUCTIVE: '1'
+          JOOMLA_ROOT: ${{ runner.temp }}/joomla
+          MCP_TEST_DB_TYPE: mysqli
+          MCP_TEST_DB_HOST: 127.0.0.1:3306
+          MCP_TEST_DB_USER: mcp_test
+          MCP_TEST_DB_PASS: disposable-test-password
+          MCP_TEST_DB_NAME: mcp_fixture
+          MCP_PLUGIN_SOURCE: ${{ github.workspace }}/plugin
+          MCP_CLIENT_SOURCE: ${{ github.workspace }}/client
+        run: bash tests/integration/run.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: installed-client-php-${{ matrix.php }}
+          path: component/build/evidence/
+          if-no-files-found: error
+          retention-days: 7
