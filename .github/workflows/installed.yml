@@ -64,7 +64,9 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: Build the installed component package
         working-directory: component
-        run: bash tools/build.sh
+        run: |
+          bash tools/build.sh
+          bash tools/build-distribution.sh
       - name: Record exact source revisions
         run: |
           mkdir -p component/build/evidence
