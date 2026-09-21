@@ -16,7 +16,12 @@
     }
   },
   "scripts": {
-    "test": "php tests/run.php"
+    "test": [
+      "php tests/run.php",
+      "php tests/configuration.php",
+      "php tests/bridge.php",
+      "bash tests/http.sh"
+    ]
   },
   "config": {
     "allow-plugins": {
@@ -25,6 +30,18 @@
     "sort-packages": true
   },
   "archive": {
-    "exclude": ["/.github", "/tests", "/build", "/vendor"]
+    "exclude": [
+      "/.github",
+      "/tests",
+      "/build",
+      "/vendor"
+    ]
+  },
+  "bin": [
+    "bin/joomengine-mcp"
+  ],
+  "suggest": {
+    "ext-posix": "Required for private per-site credential storage on POSIX systems",
+    "ext-pcntl": "Enables graceful SIGINT and SIGTERM handling in the remote stdio bridge"
   }
 }
