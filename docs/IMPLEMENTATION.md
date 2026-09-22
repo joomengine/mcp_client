@@ -1,6 +1,6 @@
-# Implementation status — 21 September 2026
+# Implementation status — 22 September 2026
 
-The standalone PHP client and remote stdio bridge are implemented on `feature/standalone-php-client` / PR #1. Component and console-plugin business logic remain in their own repositories.
+The standalone PHP client and remote stdio bridge are implemented on `feature/standalone-php-client` / [PR #1](https://github.com/joomengine/mcp_client/pull/1). Component and console-plugin business logic remain in their own repositories. The PR records current check results and review status; the [component acceptance checklist](https://github.com/joomengine/mcp_component/pull/1#issuecomment-5732685349) records coordinated Joomla/JCB execution through the installed server and this generic bridge.
 
 Implemented:
 
@@ -19,4 +19,6 @@ An installed CI success is tied to the exact component, plugin and client revisi
 
 Packagist registration is a one-time distribution setup after the reviewed package metadata reaches main. No repository code can truthfully assert that an external Packagist account has registered this package. No merge, release or publication is performed by the implementation PR.
 
-Verified initial implementation head `3319ea6`: PHP 8.3/8.4 contract CI [35612903083](https://github.com/joomengine/mcp_client/actions/runs/35612903083) and installed interoperability [35612903525](https://github.com/joomengine/mcp_client/actions/runs/35612903525) both passed. The installed runs each executed 14 live client assertions against 18 discovered tools using component `b3a75714eeadea35fbed102e4b5ba3ce021334cc`. Later commits must use their own current PR checks as the source of truth.
+Historical passing baseline, client source `2abea4bf02cd8e7ab6b15270309c69e9f5a54aa5`: PHP 8.3/8.4 contract CI [35614914110](https://github.com/joomengine/mcp_client/actions/runs/35614914110) and installed interoperability [35614914117](https://github.com/joomengine/mcp_client/actions/runs/35614914117) passed. Each installed run executed 14 live client assertions against 24 discovered tools using component `080e189aec094b5c1f883926498623ef1f16099d` and plugin `873c46742d1ee95d661779e73649fcedaf069ff4`.
+
+Current completion follows the linked PR and coordinated acceptance checklist. Those records tie results to exact component/plugin/client revisions; historical evidence does not certify later runtime changes. Review/merge and deliberate release publication follow separately.
