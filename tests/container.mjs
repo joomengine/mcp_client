@@ -31,7 +31,8 @@ for (const variable of ['JOOMENGINE_MCP_URL', 'JOOMENGINE_MCP_TOKEN']) {
 		env: environment, input: '', encoding: 'utf8', timeout: 30000, maxBuffer: 65536,
 	});
 	check(result.status === (variable === 'JOOMENGINE_MCP_URL' ? 2 : 1)
-		&& result.stdout === '' && !result.stderr.includes('private-fixture-token'), variable + ' is required without credential output');
+		&& result.stdout === '' && !result.stderr.includes('private-fixture-token'), variable
+			+ ' is required without credential output (status ' + result.status + ', stdout bytes ' + result.stdout.length + ')');
 }
 
 const deadline = async (promise, milliseconds) => {
