@@ -106,6 +106,10 @@ $http = new class implements ClientInterface
 	public string $session = 'fixture-session';
 	/** @var string Name supplied by the server, never by the client catalogue. */
 	public string $tool = 'third_party.dynamic_feature';
+	/** @var ?string Optional protocol counter-offer from the server. */
+	public ?string $protocol = null;
+	/** @var ?string Protocol agreed during the current handshake. */
+	public ?string $negotiated = null;
 
 	/** @return ResponseInterface Reply using only the requested SDK method. */
 	public function sendRequest(RequestInterface $request): ResponseInterface
@@ -119,10 +123,19 @@ $http = new class implements ClientInterface
 
 		if ($request->getMethod() === 'DELETE')
 		{
-			return new Response(204);
+			return new Response($request->getHeaderLine('MCP-Protocol-Version') === $this->negotiated ? 204 : 400);
 		}
 
 		$data = json_decode((string) $request->getBody(), true, 64, JSON_THROW_ON_ERROR);
+
+		if ($data['method'] === 'initialize')
+		{
+			$this->negotiated = $this->protocol ?? $data['params']['protocolVersion'];
+		}
+		elseif ($request->getHeaderLine('MCP-Protocol-Version') !== $this->negotiated)
+		{
+			return new Response(400);
+		}
 
 		if (!array_key_exists('id', $data))
 		{
@@ -131,7 +144,7 @@ $http = new class implements ClientInterface
 
 		$result = match ($data['method'])
 		{
-			'initialize' => ['protocolVersion' => $data['params']['protocolVersion'],
+			'initialize' => ['protocolVersion' => $this->negotiated,
 				'capabilities' => ['tools' => (object) [], 'resources' => (object) [], 'prompts' => (object) []],
 				'serverInfo' => ['name' => 'fixture', 'version' => '1.0.0']],
 			'ping' => (object) [],
@@ -173,6 +186,33 @@ foreach ($http->requests as $request)
 	$check((string) $request->getUri() === $connection->endpoint(), 'exact endpoint retained');
 	$check($request->getHeaderLine('X-Joomla-Token') === 'private-fixture-token', 'site token propagated');
 }
+
+$check(!$http->requests[0]->hasHeader('MCP-Protocol-Version'), 'initial handshake does not invent a negotiated revision');
+foreach (array_slice($http->requests, 1) as $request)
+{
+	$check($request->getHeaderLine('MCP-Protocol-Version') === $http->negotiated,
+		'negotiated revision accompanies every SDK notification, request and session deletion');
+}
+
+$counterOffer = clone $http;
+$counterOffer->requests = [];
+$counterOffer->protocol = '2025-06-18';
+$counterOffer->negotiated = null;
+$client = (new ClientFactory($counterOffer))->connect($connection);
+$check($client->getProtocolVersion()?->value === '2025-06-18', 'SDK accepts the supported server protocol counter-offer');
+$check($client->listTools()->tools[0]->name === $counterOffer->tool, 'discovery succeeds using the counter-offered revision');
+$client->disconnect();
+foreach (array_slice($counterOffer->requests, 1) as $request)
+{
+	$check($request->getHeaderLine('MCP-Protocol-Version') === '2025-06-18',
+		'counter-offered revision reaches initialized notification, discovery and DELETE');
+}
+
+$upstream = new EndpointClient($connection, $http, static fn (): ?string => '2025-06-18');
+$upstream->sendRequest(new Request('POST', $connection->endpoint(),
+	['MCP-Protocol-Version' => $http->negotiated], '{"jsonrpc":"2.0","id":99,"method":"ping"}'));
+$check(end($http->requests)->getHeaderLine('MCP-Protocol-Version') === $http->negotiated,
+	'upstream per-request protocol headers retain precedence');
 
 $bound = new EndpointClient($connection, $http);
 $reject(static fn () => $bound->sendRequest(new Request('POST', 'https://other.test')), 'cross-origin SDK request denied before transport');

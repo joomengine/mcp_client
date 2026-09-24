@@ -16,6 +16,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientInterface;
 use VDM\Joomla\Mcp\Client\Http\CurlClient;
 use VDM\Joomla\Mcp\Client\Http\EndpointClient;
+use WeakReference;
 
 
 /**
@@ -55,7 +56,10 @@ final class ClientFactory
 			->setRequestTimeout($connection->timeout())
 			->setMaxRetries(0)
 			->build();
-		$client->connect(new HttpTransport($connection->endpoint(), [], new EndpointClient($connection, $http),
+		$reference = WeakReference::create($client);
+		$endpoint = new EndpointClient($connection, $http,
+			static fn (): ?string => $reference->get()?->getProtocolVersion()?->value);
+		$client->connect(new HttpTransport($connection->endpoint(), [], $endpoint,
 			$factory, $factory, maxSseBufferBytes: $connection->maximum()));
 
 		return $client;

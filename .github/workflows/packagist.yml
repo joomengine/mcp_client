@@ -1,0 +1,83 @@
+name: Packagist consumer
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Packagist constraint: auto selects a stable release, or dev-main before the first release'
+        default: auto
+        required: false
+        type: string
+      expected_reference:
+        description: 'Optional full commit SHA that the installed public package must contain'
+        default: ''
+        required: false
+        type: string
+      wait_for_index:
+        description: 'Wait up to five minutes for the exact release version to appear in Packagist'
+        default: false
+        required: false
+        type: boolean
+  workflow_call:
+    inputs:
+      version:
+        description: 'Exact Packagist release version to install, for example 1.0.0'
+        required: true
+        type: string
+      expected_reference:
+        description: 'Optional full release commit SHA to verify against the installed package'
+        default: ''
+        required: false
+        type: string
+      wait_for_index:
+        description: 'Wait up to five minutes for the exact release version to appear in Packagist'
+        default: false
+        required: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packagist-consumer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, json, fileinfo, posix, pcntl
+          tools: composer:v2
+          coverage: none
+      - name: Install the public Packagist package and test it as an independent consumer
+        env:
+          MCP_PACKAGE_VERSION: ${{ inputs.version || 'auto' }}
+          PACKAGIST_EXPECTED_REFERENCE: ${{ inputs.expected_reference || '' }}
+          PACKAGIST_WAIT_FOR_INDEX: ${{ inputs.wait_for_index && 'true' || 'false' }}
+          PACKAGIST_REPORT_PATH: ${{ github.workspace }}/build/packagist/consumer.json
+        run: |
+          set -euo pipefail
+          mkdir -p build/packagist
+          bash tests/packagist.sh "$MCP_PACKAGE_VERSION" 2>&1 | tee build/packagist/consumer.log
+      - name: Preserve the resolved package and consumer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packagist-consumer-php-${{ matrix.php }}
+          path: build/packagist/
+          if-no-files-found: error
+          retention-days: 14

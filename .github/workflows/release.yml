@@ -1,78 +1,109 @@
 name: Tested client release
 
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version without v, for example 0.1.0 or 0.1.0-rc.1'
-        required: true
+        description: 'Optional version override, without v; otherwise use release.json'
+        required: false
         type: string
       component_ref:
-        description: Tested installed component tag or commit
-        required: true
-        default: main
+        description: Optional installed component tag or commit override
+        required: false
         type: string
       plugin_ref:
-        description: Tested console plugin tag or commit
-        required: true
-        default: main
+        description: Optional console plugin tag or commit override
+        required: false
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: client-release
+  group: client-release-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
   cancel-in-progress: false
 
 jobs:
-  validate:
+  plan:
     runs-on: ubuntu-latest
-    steps:
-      - name: Require a main-branch semantic version
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/main
-          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]
-  tests:
-    needs: validate
-    uses: ./.github/workflows/ci.yml
-    permissions:
-      contents: read
-  installed:
-    needs: validate
-    uses: ./.github/workflows/installed.yml
-    with:
-      component_ref: ${{ inputs.component_ref }}
-      plugin_ref: ${{ inputs.plugin_ref }}
-    permissions:
-      contents: read
-  release:
-    needs: [validate, tests, installed]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 5
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      verify: ${{ steps.plan.outputs.verify }}
+      version: ${{ steps.plan.outputs.version }}
+      component_ref: ${{ steps.plan.outputs.component_ref }}
+      plugin_ref: ${{ steps.plan.outputs.plugin_ref }}
+      client_ref: ${{ steps.plan.outputs.client_ref }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-          persist-credentials: true
-      - name: Push a new tested version tag and create its GitHub release
+          persist-credentials: false
+      - name: Validate the declaration and release-state behavior without publishing
+        run: |
+          bash tools/release-plan.sh validate
+          bash tests/release.sh
+      - name: Plan the immutable release from the reviewed main commit
+        id: plan
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_COMPONENT_REF: ${{ inputs.component_ref }}
+          RELEASE_PLUGIN_REF: ${{ inputs.plugin_ref }}
         run: |
           set -euo pipefail
-          TAG="v$VERSION"
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
-            echo 'This version tag already exists; it will not be overwritten.' >&2
-            exit 1
-          fi
-          git tag "$TAG" "$GITHUB_SHA"
-          git push origin "refs/tags/$TAG"
-          release_flags=()
-          if [[ "$VERSION" == *-* ]]; then release_flags+=(--prerelease); fi
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            "${release_flags[@]}" --generate-notes --title "JoomEngine MCP Client $VERSION"
+          bash tools/release-plan.sh plan | tee "$GITHUB_OUTPUT"
+  tests:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+  installed:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    uses: ./.github/workflows/installed.yml
+    with:
+      component_ref: ${{ needs.plan.outputs.component_ref }}
+      plugin_ref: ${{ needs.plan.outputs.plugin_ref }}
+    permissions:
+      contents: read
+  release:
+    needs: [plan, tests, installed]
+    if: github.ref == 'refs/heads/main' && needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.publish.outputs.version }}
+      client_ref: ${{ steps.publish.outputs.client_ref }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.client_ref }}
+          persist-credentials: true
+      - name: Publish or recover the tested version without moving an existing tag
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+          RELEASE_COMPONENT_REF: ${{ needs.plan.outputs.component_ref }}
+          RELEASE_PLUGIN_REF: ${{ needs.plan.outputs.plugin_ref }}
+        run: |
+          set -euo pipefail
+          bash tools/release-plan.sh publish | tee "$GITHUB_OUTPUT"
+  verify:
+    needs: [plan, release]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.verify == 'true' && (needs.plan.outputs.publish == 'false' || needs.release.result == 'success')
+    uses: ./.github/workflows/packagist.yml
+    with:
+      version: ${{ needs.plan.outputs.version }}
+      expected_reference: ${{ needs.plan.outputs.client_ref }}
+      wait_for_index: true
+    permissions:
+      contents: read
