@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Packagist distribution
+
+- Link the registered `joomengine/mcp-client` package, live development-version/download badges, release history and CI from the README.
+- Add Composer-first local and global installation, AI stdio launcher setup and a complete PHP SDK discovery example.
+- Document indexed `dev-main` availability, semantic-version releases and Packagist synchronization without claiming an unissued stable release.
+- Add package discovery/support metadata and PHP 8.3/8.4 consumer checks that download the actual Packagist distribution into a clean project and exercise its generated executable and SDK against local trusted HTTPS.
+- Use the component and plugin `main` branches for installed interoperability checks after their original feature branches were merged and deleted.
+
 ## Unreleased
 
 - Establish independent ownership of the external PHP MCP client and remote stdio bridge.

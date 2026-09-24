@@ -1,8 +1,15 @@
 {
   "name": "joomengine/mcp-client",
   "description": "Standalone PHP client for database-driven JoomEngine MCP servers",
+  "keywords": ["joomla", "joomengine", "mcp", "model-context-protocol", "client", "stdio"],
+  "homepage": "https://github.com/joomengine/mcp_client",
   "type": "library",
   "license": "GPL-3.0-or-later",
+  "support": {
+    "issues": "https://github.com/joomengine/mcp_client/issues",
+    "source": "https://github.com/joomengine/mcp_client",
+    "docs": "https://github.com/joomengine/mcp_client/blob/main/README.md"
+  },
   "require": {
     "php": "^8.3",
     "ext-curl": "*",
@@ -22,7 +29,8 @@
       "php tests/cli.php",
       "php tests/bridge.php",
       "bash tests/http.sh"
-    ]
+    ],
+    "test:packagist": "bash tests/packagist.sh"
   },
   "config": {
     "allow-plugins": {

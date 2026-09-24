@@ -1,16 +1,91 @@
 # JoomEngine MCP Client
 
+[![Packagist development version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fpackagist.org%2Fpackages%2Fjoomengine%2Fmcp-client.json&query=%24.package.versions%5B%27dev-main%27%5D.version&label=Packagist&color=orange)](https://packagist.org/packages/joomengine/mcp-client)
+[![Total downloads](https://img.shields.io/packagist/dt/joomengine/mcp-client)](https://packagist.org/packages/joomengine/mcp-client/stats)
+[![PHP requirement](https://img.shields.io/badge/PHP-%5E8.3-777BB4)](composer.json)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+[![PHP client contracts](https://github.com/joomengine/mcp_client/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/joomengine/mcp_client/actions/workflows/ci.yml)
+[![Packagist consumer](https://github.com/joomengine/mcp_client/actions/workflows/packagist.yml/badge.svg?branch=main)](https://github.com/joomengine/mcp_client/actions/workflows/packagist.yml)
+
 Standalone PHP client and remote stdio bridge for an installed JoomEngine MCP server.
 
-**Composer package:** `joomengine/mcp-client`
-**Namespace:** `VDM\Joomla\Mcp\Client`
-**Executable:** `joomengine-mcp`
+**[Packagist package](https://packagist.org/packages/joomengine/mcp-client)** · **[Releases](https://github.com/joomengine/mcp_client/releases)** · **[Changelog](CHANGELOG.md)** · **[Issues](https://github.com/joomengine/mcp_client/issues)**
 
-Requires PHP 8.3+, cURL and JSON. Persistent named-site configuration also requires POSIX ownership support (`ext-posix`). `ext-pcntl` enables orderly signal handling. No local Joomla installation, component classes or copied Joomla/JCB catalogue are needed.
+| Interface | Name |
+| --- | --- |
+| Composer package | `joomengine/mcp-client` |
+| PHP namespace | `VDM\Joomla\Mcp\Client` |
+| Executable | `joomengine-mcp` |
+
+Requires PHP 8.3+, cURL, JSON and [Composer 2](https://getcomposer.org/download/). Persistent named-site configuration also requires POSIX ownership support (`ext-posix`). `ext-pcntl` enables orderly signal handling. No local Joomla installation is needed. The target HTTPS site must have the [JoomEngine MCP component](https://github.com/joomengine/mcp_component) installed and enabled; use that site's Joomla API token for a user with the necessary permissions. The [console plugin](https://github.com/joomengine/mcp_plugin) is only needed for direct local Joomla console serving.
+
+## Install from Packagist
+
+The package is registered on Packagist. As of 24 September 2026, the available version is **`dev-main`**; no tagged stable release has been published. Install the indexed development version in your PHP project or an empty working directory:
+
+```bash
+composer require joomengine/mcp-client:dev-main
+composer check-platform-reqs
+./vendor/bin/joomengine-mcp help
+```
+
+Packagist is Composer's default repository, so no custom repository configuration or Git checkout is required. The explicit `dev-main` constraint allows this package's development version without lowering your project's overall `minimum-stability`. Keep your application's `composer.lock` to reproduce the resolved commit and dependencies. `composer update joomengine/mcp-client --with-dependencies` updates it deliberately.
+
+Once a stable version appears on the [package page](https://packagist.org/packages/joomengine/mcp-client) and in [GitHub Releases](https://github.com/joomengine/mcp_client/releases), new installations can use `composer require joomengine/mcp-client` to select a compatible stable release. An existing `dev-main` requirement must be changed to a tagged release constraint when you want to stop tracking development. [Release instructions](docs/RELEASE.md) explain versioning and distribution checks.
+
+### Connect an AI application
+
+For a direct stdio connection, supply the site's HTTPS base URL and token separately. This Bash example prompts for both without putting the token in command history:
+
+```bash
+read -r -p 'Joomla HTTPS base URL: ' JOOMENGINE_MCP_URL
+read -r -s -p 'Joomla API token: ' JOOMENGINE_MCP_TOKEN
+printf '\n'
+export JOOMENGINE_MCP_URL JOOMENGINE_MCP_TOKEN
+./vendor/bin/joomengine-mcp connect
+```
+
+The final command waits for MCP JSON-RPC on stdin and writes protocol replies to stdout. Configure your AI application's MCP launcher as follows:
+
+| Setting | Value |
+| --- | --- |
+| Transport | `stdio` |
+| Command | The absolute path to `vendor/bin/joomengine-mcp` in your project |
+| Arguments | `connect` |
+| Environment | `JOOMENGINE_MCP_URL` and `JOOMENGINE_MCP_TOKEN`, supplied through the application's environment or secret settings |
+
+Run `realpath vendor/bin/joomengine-mcp` on Linux to obtain the launcher command. On Windows, use Composer's generated `vendor/bin/joomengine-mcp.bat` launcher. The client discovers tools, resources and prompts from the authenticated server; the AI application does not need a copied Joomla/JCB catalogue. An explicit URL argument to `connect` overrides `JOOMENGINE_MCP_URL`.
+
+To install the executable globally instead of in a project:
+
+```bash
+composer global require joomengine/mcp-client:dev-main
+composer global config bin-dir --absolute
+```
+
+Add the directory printed by the second command to your `PATH`, or give the AI launcher the absolute executable path in that directory. Then `joomengine-mcp connect` uses the same URL/token environment variables. Project-local installations use `./vendor/bin/joomengine-mcp`; a global executable is only available as a bare command when its directory is on `PATH`.
+
+### Save a named site
+
+On POSIX systems with `ext-posix`, the installed executable can save credentials in a private configuration file:
+
+```bash
+read -r -p 'Joomla HTTPS base URL: ' JOOMENGINE_MCP_SITE
+read -r -s -p 'Joomla API token: ' JOOMENGINE_MCP_TOKEN
+printf '\n'
+export JOOMENGINE_MCP_TOKEN
+./vendor/bin/joomengine-mcp configure production "$JOOMENGINE_MCP_SITE"
+unset JOOMENGINE_MCP_TOKEN
+./vendor/bin/joomengine-mcp serve production
+```
+
+For an AI launcher, use the same absolute executable path with separate arguments `serve` and `production`. `sites` lists saved names and URLs; `remove NAME` removes a saved site. Configuration messages and diagnostics go to stderr. Tokens are never accepted as command-line arguments.
+
+By default named sites are stored beneath `$XDG_CONFIG_HOME/joomengine-mcp`, or `$HOME/.config/joomengine-mcp` when XDG is unset. `JOOMENGINE_MCP_CONFIG_DIR` selects an explicit private directory. Directories must be mode 0700 and credential files mode 0600; unsafe owners, links and shared writable paths are rejected. Writes are locked and atomic. The file is plaintext protected by filesystem permissions, not encrypted storage.
 
 ## Run with Docker Compose
 
-Docker Engine and Compose v2 provide the complete PHP runtime. Build once from this checkout, then enter the installed site's HTTPS base URL and its Joomla API token:
+Docker Engine and Compose v2 provide the complete PHP runtime. Clone this repository using the commands in [Run from a development checkout](#run-from-a-development-checkout), then build once from that directory and enter the installed site's HTTPS base URL and its Joomla API token:
 
 ```bash
 docker compose build --pull mcp
@@ -28,39 +103,81 @@ The container runs without root privileges, with a read-only filesystem, no publ
 ## Run from a development checkout
 
 ```bash
+git clone https://github.com/joomengine/mcp_client.git
+cd mcp_client
 composer install
 composer test
-read -r -p 'Joomla HTTPS base URL: ' JOOMENGINE_MCP_SITE
-read -r -s -p 'Joomla API token: ' JOOMENGINE_MCP_TOKEN
-printf '\n'
-export JOOMENGINE_MCP_TOKEN
-php bin/joomengine-mcp configure production "$JOOMENGINE_MCP_SITE"
-unset JOOMENGINE_MCP_TOKEN
-php bin/joomengine-mcp serve production
+php bin/joomengine-mcp help
 ```
 
-The final command speaks newline-delimited MCP JSON-RPC on stdin/stdout; launch it from your MCP application's stdio configuration. For a Composer-installed executable, use `joomengine-mcp serve production`. The `configure` command saves the site URL and separately supplied token in an owner-only configuration file; it never accepts a token in command-line arguments. `sites` lists names and URLs, and `remove NAME` removes one saved site. Configuration messages and all diagnostics go to stderr.
-
-By default named sites are stored beneath `$XDG_CONFIG_HOME/joomengine-mcp`, or `$HOME/.config/joomengine-mcp` when XDG is unset. `JOOMENGINE_MCP_CONFIG_DIR` selects an explicit private directory. Directories must be mode 0700 and credential files mode 0600; unsafe owners, links and shared writable paths are rejected. Writes are locked and atomic. The file is plaintext protected by filesystem permissions, not encrypted storage.
-
-For an ephemeral connection use `joomengine-mcp connect HTTPS_BASE_URL` with `JOOMENGINE_MCP_TOKEN` in the environment, or `joomengine-mcp connect` with both `JOOMENGINE_MCP_URL` and `JOOMENGINE_MCP_TOKEN` set. An explicit URL argument takes precedence. `php examples/discover.php HTTPS_BASE_URL` runs the PHP SDK discovery example.
+In a checkout, use `php bin/joomengine-mcp` with the same connection/configuration commands described above. With the URL/token environment variables set, `php examples/discover.php "$JOOMENGINE_MCP_URL"` runs the PHP SDK discovery example.
 
 ## PHP API
 
+After installing the package with Composer, save this as `discover.php` in your project's root and run `php discover.php` with `JOOMENGINE_MCP_URL` and `JOOMENGINE_MCP_TOKEN` set as above:
+
 ```php
+<?php
+
 use VDM\Joomla\Mcp\Client\ClientFactory;
 use VDM\Joomla\Mcp\Client\Connection;
 
-$client = (new ClientFactory())->connect(Connection::fromEnvironment($siteUrl));
+require __DIR__ . '/vendor/autoload.php';
+
+$siteUrl = getenv('JOOMENGINE_MCP_URL');
+
+if (!is_string($siteUrl) || $siteUrl === '')
+{
+	fwrite(STDERR, "Set JOOMENGINE_MCP_URL and JOOMENGINE_MCP_TOKEN before running discovery.\n");
+	exit(2);
+}
+
+$client = null;
+$status = 0;
 
 try
 {
-    $tools = $client->listTools();
+	$client = (new ClientFactory())->connect(Connection::fromEnvironment($siteUrl));
+	$cursor = null;
+	$seen = [];
+
+	do
+	{
+		$result = $client->listTools($cursor);
+
+		foreach ($result->tools as $tool)
+		{
+			echo $tool->name . PHP_EOL;
+		}
+
+		$cursor = $result->nextCursor;
+
+		if ($cursor !== null)
+		{
+			if (isset($seen[$cursor]) || count($seen) >= 100)
+			{
+				throw new RuntimeException('Discovery pagination exceeded its bound.');
+			}
+
+			$seen[$cursor] = true;
+		}
+	}
+	while ($cursor !== null);
+}
+catch (Throwable)
+{
+	fwrite(STDERR, "MCP discovery failed. Check the URL, token, component installation and Joomla permissions.\n");
+	$status = 1;
 }
 finally
 {
-    $client->disconnect();
+	if ($client !== null)
+	{
+		$client->disconnect();
+	}
 }
+
+exit($status);
 ```
 
 The returned official SDK client supports tools, resources, resource templates and prompts. Preserve `nextCursor` when listing multiple pages and use each discovered input schema when constructing arguments. `Configuration\SiteStore::connection($name)` loads the same `Connection` used by the executable.
@@ -79,4 +196,6 @@ Joomla and JCB operations, confirmation grants, durable jobs, cancellation and a
 
 `composer test` runs SDK contracts, secure configuration checks, CLI/process framing checks and a real HTTPS fixture. Tests require Node.js and OpenSSL in addition to PHP. `bash tests/container.sh` builds the actual Docker image and tests Compose against the TLS fixture on a Linux Docker engine. Both packaging and PHP contracts run on PHP 8.3/8.4 in CI. The installed interoperability workflow builds and installs the actual component/plugin and tests both this library and this executable over trusted HTTPS. [Implementation evidence](docs/IMPLEMENTATION.md) distinguishes these layers.
 
-See [the server contract](docs/SERVER-CONTRACT.md) and [release instructions](docs/RELEASE.md). This development branch does not itself publish a Composer package or register it on Packagist.
+`composer test:packagist` installs the publicly indexed package into a clean Composer project, exercises Composer's generated executable and uses the installed PHP API against a local trusted HTTPS fixture. It verifies distribution, autoloading and protocol behaviour without a Joomla site or real credentials. Use `composer test:packagist -- dev-main` to select the development version explicitly. This consumer test runs independently of checkout tests in the [Packagist consumer workflow](https://github.com/joomengine/mcp_client/actions/workflows/packagist.yml); its logs record the version and source reference actually installed. On a pull request it tests the existing Packagist package, while `composer test` tests the proposed source. It does not certify installed Joomla business operations.
+
+See [the server contract](docs/SERVER-CONTRACT.md), [release instructions](docs/RELEASE.md) and the [Packagist listing](https://packagist.org/packages/joomengine/mcp-client).
