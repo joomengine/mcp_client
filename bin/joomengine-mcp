@@ -31,7 +31,7 @@ try
 
 	if ($command === 'help' || $command === '--help' || $command === '-h')
 	{
-		fwrite(STDERR, "Usage:\n  joomengine-mcp serve NAME\n  joomengine-mcp connect HTTPS_BASE_URL\n  joomengine-mcp configure NAME HTTPS_BASE_URL\n  joomengine-mcp sites\n  joomengine-mcp remove NAME\n\nconfigure and connect obtain the token from JOOMENGINE_MCP_TOKEN.\nNamed sites use a private file under XDG_CONFIG_HOME/joomengine-mcp;\nJOOMENGINE_MCP_CONFIG_DIR selects an explicit private directory.\nserve/connect reserve stdout exclusively for MCP JSON-RPC.\n");
+		fwrite(STDERR, "Usage:\n  joomengine-mcp serve NAME\n  joomengine-mcp connect [HTTPS_BASE_URL]\n  joomengine-mcp configure NAME HTTPS_BASE_URL\n  joomengine-mcp sites\n  joomengine-mcp remove NAME\n\nconfigure and connect obtain the token from JOOMENGINE_MCP_TOKEN.\nconnect uses JOOMENGINE_MCP_URL when its URL argument is omitted.\nNamed sites use a private file under XDG_CONFIG_HOME/joomengine-mcp;\nJOOMENGINE_MCP_CONFIG_DIR selects an explicit private directory.\nserve/connect reserve stdout exclusively for MCP JSON-RPC.\n");
 		exit(0);
 	}
 
@@ -63,6 +63,16 @@ try
 		(new SiteStore($directory))->remove($arguments[0]);
 		fwrite(STDERR, "Site configuration removed.\n");
 		exit(0);
+	}
+
+	if ($command === 'connect' && $arguments === [])
+	{
+		$site = getenv('JOOMENGINE_MCP_URL');
+
+		if (is_string($site) && $site !== '')
+		{
+			$arguments[] = $site;
+		}
 	}
 
 	if (!in_array($command, ['serve', 'connect'], true) || count($arguments) !== 1)

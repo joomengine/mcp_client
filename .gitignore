@@ -1,3 +1,6 @@
 /vendor/
 /build/
 /.env
+/.env.*
+/compose.ca.yaml
+/certificates/

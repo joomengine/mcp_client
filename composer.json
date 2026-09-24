@@ -19,6 +19,7 @@
     "test": [
       "php tests/run.php",
       "php tests/configuration.php",
+      "php tests/cli.php",
       "php tests/bridge.php",
       "bash tests/http.sh"
     ]

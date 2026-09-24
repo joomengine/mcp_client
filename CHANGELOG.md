@@ -13,3 +13,10 @@
 - Preserve HTTP identity, protocol/session metadata, pagination, finite SSE events, cancellation notifications and structured job results.
 - Add concurrent bounded HTTPS transport with TLS failure and process-level acceptance coverage.
 - Gate stable/prerelease automation on client contracts and packaged Joomla interoperability.
+
+## Unreleased — Docker Compose client
+
+- Add a complete non-root Docker image and read-only Compose service for connecting an AI application's stdio MCP transport using a Joomla HTTPS URL and API token.
+- Allow `connect` to obtain its URL from `JOOMENGINE_MCP_URL` while preserving explicit URL arguments and credential isolation.
+- Gate client releases on real Compose/TLS packaging checks for PHP 8.3 and 8.4, alongside existing PHP and installed Joomla acceptance.
+- Document AI launcher setup, private CA bundles, Docker operation and the distinction between remote HTTP authority and trusted local-console serving.
