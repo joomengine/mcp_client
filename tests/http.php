@@ -172,10 +172,11 @@ $reject(static fn () => $client->start('closed', '{}'), 'closed scheduler cannot
 // Exercise the actual distributable executable over the same real TLS endpoint.
 $environment = getenv();
 $environment['JOOMENGINE_MCP_TOKEN'] = 'private-fixture-token';
+$environment['JOOMENGINE_MCP_URL'] = $site;
 $binary = dirname(__DIR__) . '/bin/joomengine-mcp';
-$bridge = proc_open([PHP_BINARY, '-d', 'curl.cainfo=' . ini_get('curl.cainfo'), $binary, 'connect', $site],
+$bridge = proc_open([PHP_BINARY, '-d', 'curl.cainfo=' . ini_get('curl.cainfo'), $binary, 'connect'],
 	[['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $streams, null, $environment);
-$check(is_resource($bridge), 'packaged executable starts with token outside arguments');
+$check(is_resource($bridge), 'packaged executable starts with URL and token in environment only');
 $read = static function () use ($streams): object
 {
 	$ready = [$streams[1]];

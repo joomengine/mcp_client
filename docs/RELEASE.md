@@ -12,7 +12,7 @@ References: https://packagist.org/about and https://getcomposer.org/doc/04-schem
 
 Run **Tested client release** on main with a semantic version without `v`, plus the component and console-plugin refs to test. Prefer immutable tags or full commit IDs for the dependencies. The workflow accepts stable versions and `alpha.N`, `beta.N` or `rc.N` prereleases.
 
-Before creating a tag, it runs the full PHP 8.3/8.4 contract/TLS suite and the installed Joomla interoperability workflow using that same client commit. The installed workflow records all three actual commit IDs. Any failed job prevents tagging. Releases cannot run from pull requests, and existing tags are never moved or overwritten.
+Before creating a tag, it runs the full PHP 8.3/8.4 contract/TLS suite, the Docker Compose build/HTTPS suites on both PHP versions, and the installed Joomla interoperability workflow using that same client commit. The installed workflow records all three actual commit IDs. Any failed job prevents tagging. Releases cannot run from pull requests, and existing tags are never moved or overwritten.
 
 After testing, the workflow creates the tag and matching GitHub release, setting prerelease status when appropriate. Packagist's configured integration should index the tag; verify that externally rather than assuming it occurred. If release creation fails after tagging, inspect the existing tag and complete its release without moving the tag.
 

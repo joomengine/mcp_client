@@ -27,6 +27,7 @@ const server = https.createServer({
 			response.end(JSON.stringify(data));
 		};
 		if (request.method === 'DELETE') {
+			counts.DELETE = (counts.DELETE ?? 0) + 1;
 			response.writeHead(204).end();
 			return;
 		}
@@ -45,6 +46,9 @@ const server = https.createServer({
 			case 'stats': json({ counts, redirected }); return;
 			case 'unauthorized': response.writeHead(401, { 'Content-Type': 'text/plain' }).end('private-upstream-diagnostic'); return;
 			case 'initialize':
+				if (request.headers['x-joomla-token'] !== 'private-fixture-token') {
+					response.writeHead(401).end(); return;
+				}
 				json({ jsonrpc: '2.0', id: payload.id, result: {
 					protocolVersion: payload.params.protocolVersion,
 					capabilities: { tools: {} }, serverInfo: { name: 'loopback-tls-fixture', version: '1.0' },

@@ -1,0 +1,22 @@
+services:
+  mcp:
+    image: joomengine-mcp-client:local
+    build:
+      context: .
+      args:
+        PHP_VERSION: ${JOOMENGINE_MCP_PHP_VERSION:-8.3}
+    environment:
+      - JOOMENGINE_MCP_URL
+      - JOOMENGINE_MCP_TOKEN
+    stdin_open: true
+    tty: false
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    restart: "no"
+    stop_grace_period: 65s

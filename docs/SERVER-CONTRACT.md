@@ -8,6 +8,8 @@ Each exchange carries the configured user's `X-Joomla-Token`. The installed serv
 
 The component's webservices routing glue handles HTTP. The separate console plugin handles direct local Joomla stdio; the external bridge does not need it for HTTP and cannot acquire its trusted local-console identity.
 
+The Docker Compose distribution runs that same external bridge. `JOOMENGINE_MCP_URL` supplies the installation base URL and `JOOMENGINE_MCP_TOKEN` supplies its credential at container launch. It exposes stdio to the AI application and contacts the canonical HTTPS component endpoint. It does not host a new HTTP API, mount Joomla, or depend on the console plugin. Native HTTP MCP applications can use the component endpoint and token header directly.
+
 ## Discovery and transport
 
 `ClientFactory::connect()` returns the official PHP SDK client. The remote executable is a generic JSON-RPC proxy. Tools, resources, resource templates, prompts, schemas, pagination cursors and result data are supplied by the server; neither client path contains a Joomla/JCB catalogue.

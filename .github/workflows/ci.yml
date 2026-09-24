@@ -44,3 +44,29 @@ jobs:
           path: build/
           if-no-files-found: warn
           retention-days: 7
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build and exercise the Compose client over trusted HTTPS
+        env:
+          JOOMENGINE_MCP_PHP_VERSION: ${{ matrix.php }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          bash tests/container.sh 2>&1 | tee build/container.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: container-evidence-${{ matrix.php }}
+          path: build/container.log
+          if-no-files-found: error
+          retention-days: 7
