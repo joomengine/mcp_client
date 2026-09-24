@@ -81,4 +81,4 @@ $transport = new class($argv[1]) implements AsyncClientInterface
 		$this->pending = [];
 	}
 };
-exit((new StdioBridge(new Connection('https://example.test/subdirectory', 'never-print-fixture-token'), $transport))->run(STDIN, STDOUT, STDERR));
+exit((new StdioBridge(new Connection('https://example.test/subdirectory', 'never-print-fixture-token', 30, (int) ($argv[2] ?? 8388608)), $transport))->run(STDIN, STDOUT, STDERR));
