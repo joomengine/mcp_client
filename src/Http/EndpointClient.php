@@ -9,6 +9,7 @@
 namespace VDM\Joomla\Mcp\Client\Http;
 
 
+use Closure;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -30,12 +31,20 @@ final class EndpointClient implements ClientInterface
 	private Connection $connection;
 	/** @var ClientInterface Bounded non-redirecting transport. @since 0.1.0 */
 	private ClientInterface $http;
+	/** @var (Closure(): ?string)|null Current SDK-negotiated protocol revision. @since 0.1.0 */
+	private ?Closure $protocolVersion;
 
-	/** @param Connection $connection Endpoint. @param ClientInterface $http Trusted transport. @since 0.1.0 */
-	public function __construct(Connection $connection, ClientInterface $http)
+	/**
+	 * @param Connection $connection Endpoint.
+	 * @param ClientInterface $http Trusted transport.
+	 * @param (callable(): ?string)|null $protocolVersion Current negotiated revision, null before initialization.
+	 * @since 0.1.0
+	 */
+	public function __construct(Connection $connection, ClientInterface $http, ?callable $protocolVersion = null)
 	{
 		$this->connection = $connection;
 		$this->http = $http;
+		$this->protocolVersion = $protocolVersion === null ? null : Closure::fromCallable($protocolVersion);
 	}
 
 	/**
@@ -59,6 +68,18 @@ final class EndpointClient implements ClientInterface
 		foreach ($this->connection->headers() as $name => $value)
 		{
 			$request = $request->withHeader($name, $value);
+		}
+
+		// SDK handshake transports omit this header, including on DELETE. Read
+		// negotiated SDK state at send time and retain any upstream per-request header.
+		if (!$request->hasHeader('MCP-Protocol-Version') && $this->protocolVersion !== null)
+		{
+			$version = ($this->protocolVersion)();
+
+			if ($version !== null)
+			{
+				$request = $request->withHeader('MCP-Protocol-Version', $version);
+			}
 		}
 
 		$response = $this->http->sendRequest($request);

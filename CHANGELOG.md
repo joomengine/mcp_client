@@ -7,6 +7,8 @@
 - Document indexed `dev-main` availability, semantic-version releases and Packagist synchronization without claiming an unissued stable release.
 - Add package discovery/support metadata and PHP 8.3/8.4 consumer checks that download the actual Packagist distribution into a clean project and exercise its generated executable and SDK against local trusted HTTPS.
 - Use the component and plugin `main` branches for installed interoperability checks after their original feature branches were merged and deleted.
+- Send the SDK's negotiated `MCP-Protocol-Version` on subsequent HTTP requests, notifications and session deletion, including when the server selects a different supported protocol revision.
+- Report missing SDK protocol headers in consumer evidence for the existing published development version while retaining the component's backward-compatible handling; require the stdio bridge's negotiated header and reject incorrect revisions.
 
 ## Unreleased
 

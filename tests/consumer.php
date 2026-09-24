@@ -210,10 +210,18 @@ $check(count($sessions) === 2 && count(array_unique(array_column($sessions, 'ses
 $check(count(array_filter($requests, static fn (array $request): bool => $request['authorized']
 	&& ($request['method'] ?? null) !== 'initialize' && $request['session'] === null)) === 0, 'every authenticated request after initialization carries its session');
 $check(count(array_filter($requests, static fn (array $request): bool => $request['authorized']
-	&& $request['http'] === 'POST' && ($request['method'] ?? null) !== 'initialize' && $request['protocol'] === null)) === 0, 'authenticated protocol requests carry their negotiated revision');
+	&& $request['http'] === 'POST' && ($request['method'] ?? null) !== 'initialize'
+	&& $request['protocol'] !== null && $request['protocol'] !== $request['negotiated'])) === 0, 'supplied protocol headers agree with the negotiated session');
+$stdioSession = $sessions[1]['session'];
+$check(count(array_filter($requests, static fn (array $request): bool => $request['session'] === $stdioSession
+	&& $request['http'] === 'POST' && $request['protocol'] !== '2025-06-18')) === 0, 'stdio requests always carry the negotiated revision');
+$legacyRequests = count(array_filter($requests, static fn (array $request): bool => $request['session'] !== null
+	&& $request['session'] !== $stdioSession && $request['protocol'] === null));
+echo 'Published SDK requests using component-compatible missing-header handling: ' . $legacyRequests . PHP_EOL;
 
 $evidence = ['package' => 'joomengine/mcp-client', 'version' => $version, 'reference' => $reference,
-	'php' => PHP_VERSION, 'checks' => $passed, 'fixture' => 'loopback HTTPS protocol fixture; no installed Joomla site'];
+	'php' => PHP_VERSION, 'checks' => $passed, 'legacyProtocolHeaderRequests' => $legacyRequests,
+	'fixture' => 'loopback HTTPS protocol fixture with component-compatible legacy header handling; no installed Joomla site'];
 $report = json_encode($evidence, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL;
 echo $report;
 $reportPath = getenv('PACKAGIST_REPORT_PATH');

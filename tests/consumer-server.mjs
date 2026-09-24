@@ -22,6 +22,7 @@ const server = https.createServer({
 		appendFileSync(process.argv[4], JSON.stringify({
 			http: request.method, path: request.url, method: payload.method,
 			session: session ?? null, protocol: request.headers['mcp-protocol-version'] ?? null,
+			negotiated: sessions.get(session) ?? null,
 			authorized, name: payload.params?.name ?? null,
 		}) + '\n');
 		if (request.url !== endpoint) { response.writeHead(404).end(); return; }
@@ -53,7 +54,10 @@ const server = https.createServer({
 			response.writeHead(204).end();
 			return;
 		}
-		if (request.headers['mcp-protocol-version'] !== sessions.get(session)) {
+		// Match the component's SDK middleware: legacy missing headers are accepted.
+		// A supplied revision must still agree with this fixture's negotiated session.
+		if (request.headers['mcp-protocol-version'] !== undefined
+			&& request.headers['mcp-protocol-version'] !== sessions.get(session)) {
 			response.writeHead(400).end(); return;
 		}
 		if (request.method !== 'POST') { response.writeHead(405).end(); return; }
