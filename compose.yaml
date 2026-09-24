@@ -8,6 +8,8 @@ services:
     environment:
       - JOOMENGINE_MCP_URL
       - JOOMENGINE_MCP_TOKEN
+    # Preserve connection mode when an operator overrides PHP's CA configuration.
+    command: [connect]
     stdin_open: true
     tty: false
     init: true
