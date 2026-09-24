@@ -210,14 +210,14 @@ final class StdioBridge
 	/** @param string $line One frame. @param resource $errors Redacted diagnostics. */
 	private function receive(string $line, $errors): void
 	{
-		if (trim($line) === '')
-		{
-			return;
-		}
-
 		if (strlen($line) > $this->connection->maximum())
 		{
 			throw new RuntimeException('MCP input is too large.');
+		}
+
+		if (trim($line) === '')
+		{
+			return;
 		}
 
 		try

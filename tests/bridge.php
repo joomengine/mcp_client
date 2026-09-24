@@ -95,6 +95,50 @@ try
 	$check(end($entries)['method'] === 'DELETE', 'orderly disconnect ends the remote session');
 	$check($entries[1]['headers']['Mcp-Session-Id'] === 'isolated-session' && $entries[1]['headers']['MCP-Protocol-Version'] === '2025-06-18', 'subsequent requests carry negotiated session and revision');
 	$check(count(array_filter($entries, static fn (array $entry): bool => ($entry['message']['params']['name'] ?? '') === 'denied')) === 1, 'failed calls are never retried');
+
+	// Apply the configured limit to complete frames, including whitespace and EOF.
+	$request = '{"jsonrpc":"2.0","id":17,"method":"tools/list"}';
+	foreach ([
+		['maximum whitespace frame', str_repeat(' ', 1024) . "\n", 0, 0],
+		['oversized whitespace frame', str_repeat(' ', 1025) . "\n", 1, 0],
+		['maximum whitespace at EOF', str_repeat(' ', 1024), 0, 0],
+		['oversized whitespace at EOF', str_repeat(' ', 1025), 1, 0],
+		['maximum JSON frame', str_pad($request, 1024) . "\n", 0, 1],
+		['oversized JSON frame', str_pad($request, 1025) . "\n", 1, 0],
+		['multiple valid frames exceeding one frame limit in aggregate', str_repeat(str_pad($request, 600) . "\n", 2), 0, 2],
+	] as [$name, $input, $expectedStatus, $expectedReplies])
+	{
+		file_put_contents($audit, '');
+		$process = proc_open([PHP_BINARY, __DIR__ . '/fixtures/bridge.php', $audit, '1024'],
+			[['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']], $pipes);
+
+		if (!is_resource($process))
+		{
+			throw new RuntimeException('Cannot start bounded framing fixture.');
+		}
+
+		fwrite($pipes[0], $input);
+		fclose($pipes[0]);
+		$output = stream_get_contents($pipes[1]);
+		$diagnostic = stream_get_contents($pipes[2]);
+		fclose($pipes[1]);
+		fclose($pipes[2]);
+		$status = proc_close($process);
+		$process = null;
+		$replies = array_filter(explode("\n", $output), static fn (string $line): bool => $line !== '');
+		$validReplies = count($replies) === $expectedReplies;
+
+		foreach ($replies as $reply)
+		{
+			$decoded = json_decode($reply, true, 64, JSON_THROW_ON_ERROR);
+			$validReplies = $validReplies && ($decoded['id'] ?? null) === 17 && ($decoded['error']['code'] ?? null) === -32002;
+		}
+
+		$check($status === $expectedStatus && $validReplies && file_get_contents($audit) === ''
+			&& ($expectedStatus === 0 ? $diagnostic === '' : $diagnostic !== '')
+			&& !str_contains($diagnostic, 'never-print-fixture-token'), $name . ' honors byte bounds without HTTP forwarding');
+	}
+
 	echo json_encode(['passed' => $passed, 'failed' => 0, 'fixture' => 'process-level protocol; not live Joomla']) . PHP_EOL;
 }
 finally
