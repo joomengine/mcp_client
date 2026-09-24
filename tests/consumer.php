@@ -219,6 +219,12 @@ $legacyRequests = count(array_filter($requests, static fn (array $request): bool
 	&& $request['session'] !== $stdioSession && $request['protocol'] === null));
 echo 'Published SDK requests using component-compatible missing-header handling: ' . $legacyRequests . PHP_EOL;
 
+if (preg_match('/\Av?\d+\.\d+\.\d+\z/D', $version ?? '') === 1
+	&& version_compare(ltrim($version, 'v'), '1.0.0', '>='))
+{
+	$check($legacyRequests === 0, 'stable SDK sends the negotiated protocol header on every session request');
+}
+
 $evidence = ['package' => 'joomengine/mcp-client', 'version' => $version, 'reference' => $reference,
 	'php' => PHP_VERSION, 'checks' => $passed, 'legacyProtocolHeaderRequests' => $legacyRequests,
 	'fixture' => 'loopback HTTPS protocol fixture with component-compatible legacy header handling; no installed Joomla site'];

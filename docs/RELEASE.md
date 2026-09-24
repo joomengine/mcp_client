@@ -4,16 +4,44 @@ Composer package [`joomengine/mcp-client`](https://packagist.org/packages/joomen
 
 ## Current distribution and installation
 
-Packagist's public metadata was checked on 24 September 2026: `dev-main` points to this repository, and no tagged release is indexed. Registration makes the development branch installable; it does not create a stable release. The README's live version badge therefore displays Packagist's `dev-main` version.
+The first stable client release target is **1.0.0**. During release preparation on 24 September 2026, Packagist's public metadata indexed only `dev-main` from this repository. Registration makes the development branch installable; it does not create a stable release. Check the live [package page](https://packagist.org/packages/joomengine/mcp-client) and [GitHub Releases](https://github.com/joomengine/mcp_client/releases) for current publication status. The README's standard Packagist badge tracks the latest indexed stable version.
+
+After the tested `v1.0.0` tag is published and indexed:
 
 ```bash
 composer show --all joomengine/mcp-client
-composer require joomengine/mcp-client:dev-main
+composer require 'joomengine/mcp-client:^1.0'
 composer check-platform-reqs
 ./vendor/bin/joomengine-mcp help
 ```
 
-Use the explicit development constraint until a tested stable tag is indexed. For a new project after a stable release, `composer require joomengine/mcp-client` selects a compatible stable version. Existing development users must replace their `dev-main` requirement with the chosen release constraint. Composer installs the executable proxy under the consuming project's `vendor/bin`; this is distinct from `bin/joomengine-mcp` in a source checkout.
+Until indexing completes, `composer require joomengine/mcp-client:dev-main` remains the explicit development fallback. Existing development users can switch to stable with `composer require 'joomengine/mcp-client:^1.0' --with-dependencies`. Composer installs the executable proxy under the consuming project's `vendor/bin`; this is distinct from `bin/joomengine-mcp` in a source checkout.
+
+## First stable release inputs
+
+The client follows its own semantic versioning: **1.0.0** identifies the first stable external client API and executable. The installed component currently declares **0.1.1**, and the console plugin declares **0.1.0**. These package versions do not need to match. Interoperability is tested against concrete source revisions and the installed MCP protocol.
+
+Run [**Tested client release**](https://github.com/joomengine/mcp_client/actions/workflows/release.yml) from `main` containing the release preparation, with:
+
+| Workflow field | Exact value |
+| --- | --- |
+| Use workflow from | `main` |
+| `version` | `1.0.0` |
+| `component_ref` | `14c715c50c2cc29fd3c8cc3c4780442efb507398` |
+| `plugin_ref` | `993522852770e2f8968ab066deedef00f174d8c7` |
+
+These immutable component/plugin refs are the release-test targets. The workflow records the actual client revision and installs the component/plugin in its Joomla 6.1+ fixture on PHP 8.3 and 8.4. Preparing these inputs is not evidence that the release workflow has run or that `v1.0.0` exists.
+
+From an authenticated GitHub CLI, the equivalent dispatch is:
+
+```bash
+gh workflow run release.yml \
+  --repo joomengine/mcp_client \
+  --ref main \
+  --field version=1.0.0 \
+  --field component_ref=14c715c50c2cc29fd3c8cc3c4780442efb507398 \
+  --field plugin_ref=993522852770e2f8968ab066deedef00f174d8c7
+```
 
 ## Keep Packagist synchronized
 
@@ -33,9 +61,11 @@ composer test
 composer test:packagist
 ```
 
-The consumer test resolves the public package in a new Composer project without a local path or VCS repository override. It checks package metadata and autoloading, runs Composer's generated executable, and exercises the installed SDK and bridge against a local HTTPS fixture with a private test CA. Its output records the selected package version and source reference; CI saves the report and log under `build/packagist/`. Set `PACKAGIST_REPORT_PATH` to save the JSON report locally. These checks need no Joomla installation or real site token. Missing requirements, an unavailable package or a protocol failure fail the test.
+The consumer test resolves the public package in a new Composer project without a local path or VCS repository override. It checks package metadata and autoloading, runs Composer's generated executable, and exercises the installed SDK and bridge against a local HTTPS fixture with a private test CA. Its output records the selected package version and source reference and saves the JSON report to `build/packagist/consumer.json` by default; `PACKAGIST_REPORT_PATH` overrides that destination. CI retains the report and log under `build/packagist/`. These checks need no Joomla installation or real site token. Missing requirements, an unavailable package or a protocol failure fail the test.
 
-`composer test:packagist -- dev-main` selects a specific version constraint. With no argument, the runner selects the latest compatible stable version when available, falling back to `dev-main` when no stable release is indexed. The [Packagist consumer workflow](https://github.com/joomengine/mcp_client/actions/workflows/packagist.yml) runs on PHP 8.3 and 8.4 for pull requests and main-branch pushes, and supports a manual version input. CI retains the installation and fixture evidence as artifacts.
+For stable package versions 1.0.0 or later, consumer evidence must report `legacyProtocolHeaderRequests: 0`: every post-initialization SDK request must carry its negotiated `MCP-Protocol-Version`. The fixture retains the component's missing-header compatibility for the older development package and records it explicitly; that compatibility cannot hide a missing-header regression in a stable release.
+
+`composer test:packagist -- 1.0.0` checks the exact first stable release after indexing; `composer test:packagist -- dev-main` explicitly selects development. With no argument, the runner selects the latest compatible stable version when available, falling back to `dev-main` when no stable release is indexed. The [Packagist consumer workflow](https://github.com/joomengine/mcp_client/actions/workflows/packagist.yml) runs on PHP 8.3 and 8.4 for pull requests and main-branch pushes, and supports a manual version input. CI retains the installation and fixture evidence as artifacts.
 
 On a PR, the registry install tests the version already indexed by Packagist, not unpublished PR code. The separate PHP contract and Docker checks exercise the proposed source. Neither layer substitutes for installed Joomla acceptance.
 
@@ -51,6 +81,6 @@ After Packagist indexes the tag:
 
 1. Confirm the exact version and source commit in `composer show --all joomengine/mcp-client` and on the [package page](https://packagist.org/packages/joomengine/mcp-client).
 2. Run **Packagist consumer** manually with that exact version. Both PHP versions must pass against the downloaded distribution.
-3. For the first stable release, update the README's primary installation command and development-status text. Replace its development-version badge with the standard [Packagist release badge](https://img.shields.io/packagist/v/joomengine/mcp-client), retaining the link to the package page. This badge then tracks subsequent stable releases automatically.
+3. Confirm the standard [Packagist release badge](https://img.shields.io/packagist/v/joomengine/mcp-client) shows the indexed stable version and that the exact-version consumer report records the tag's source commit with no missing SDK protocol headers. Retain the release and consumer workflow evidence. The `^1.0` installation command supports subsequent compatible stable 1.x releases.
 
 For local installed acceptance, supply `JOOMENGINE_MCP_URL` and `JOOMENGINE_MCP_TOKEN` and run `php tests/live.php`; a private test CA can be configured through PHP's `curl.cainfo`. Missing configuration fails. Full component/JCB write and job acceptance remains owned by the installed component's fixture, rather than a duplicated business-operation catalogue in this package.

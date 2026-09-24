@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version without v, for example 0.1.0 or 0.1.0-rc.1'
+        description: 'Version without v, for example 1.0.0 or 1.1.0-rc.1'
         required: true
         type: string
       component_ref:

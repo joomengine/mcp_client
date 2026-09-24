@@ -1,6 +1,6 @@
 # JoomEngine MCP Client
 
-[![Packagist development version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fpackagist.org%2Fpackages%2Fjoomengine%2Fmcp-client.json&query=%24.package.versions%5B%27dev-main%27%5D.version&label=Packagist&color=orange)](https://packagist.org/packages/joomengine/mcp-client)
+[![Latest stable Packagist version](https://img.shields.io/packagist/v/joomengine/mcp-client)](https://packagist.org/packages/joomengine/mcp-client)
 [![Total downloads](https://img.shields.io/packagist/dt/joomengine/mcp-client)](https://packagist.org/packages/joomengine/mcp-client/stats)
 [![PHP requirement](https://img.shields.io/badge/PHP-%5E8.3-777BB4)](composer.json)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
@@ -21,17 +21,38 @@ Requires PHP 8.3+, cURL, JSON and [Composer 2](https://getcomposer.org/download/
 
 ## Install from Packagist
 
-The package is registered on Packagist. As of 24 September 2026, the available version is **`dev-main`**; no tagged stable release has been published. Install the indexed development version in your PHP project or an empty working directory:
+The stable **1.x** series starts at **1.0.0**. Check the live version badge, [GitHub Releases](https://github.com/joomengine/mcp_client/releases) and the [package page](https://packagist.org/packages/joomengine/mcp-client) for published versions. Once a stable 1.x tag is indexed, install it in your PHP project or an empty working directory:
 
 ```bash
-composer require joomengine/mcp-client:dev-main
+composer require 'joomengine/mcp-client:^1.0'
 composer check-platform-reqs
 ./vendor/bin/joomengine-mcp help
 ```
 
-Packagist is Composer's default repository, so no custom repository configuration or Git checkout is required. The explicit `dev-main` constraint allows this package's development version without lowering your project's overall `minimum-stability`. Keep your application's `composer.lock` to reproduce the resolved commit and dependencies. `composer update joomengine/mcp-client --with-dependencies` updates it deliberately.
+Packagist is Composer's default repository, so no custom repository configuration or Git checkout is required. `^1.0` accepts compatible stable 1.x updates while excluding 2.0. Keep your application's `composer.lock` to reproduce the resolved version and dependencies. `composer update joomengine/mcp-client --with-dependencies` updates it deliberately. The version badge reflects indexed stable releases and will report no release until the first tag is indexed.
 
-Once a stable version appears on the [package page](https://packagist.org/packages/joomengine/mcp-client) and in [GitHub Releases](https://github.com/joomengine/mcp_client/releases), new installations can use `composer require joomengine/mcp-client` to select a compatible stable release. An existing `dev-main` requirement must be changed to a tagged release constraint when you want to stop tracking development. [Release instructions](docs/RELEASE.md) explain versioning and distribution checks.
+### Development version
+
+Until the first stable release is indexed, or when intentionally testing current development, use:
+
+```bash
+composer require joomengine/mcp-client:dev-main
+```
+
+The explicit constraint allows this package's development version without lowering your project's overall `minimum-stability`. Development installs follow `main` when updated. After the stable release, existing development users can run `composer require 'joomengine/mcp-client:^1.0' --with-dependencies` to move to the stable series. [Release instructions](docs/RELEASE.md) explain publication and distribution checks.
+
+### Version compatibility
+
+The client, installed component and console plugin have independent version numbers. Client 1.0.0 does not require component or plugin 1.0.0. The selected first-release interoperability targets are:
+
+| Part | Version / requirement | Release-test source |
+| --- | --- | --- |
+| MCP client | `1.0.0` baseline; PHP 8.3+ | Client commit tested by the release workflow |
+| Installed MCP component | `0.1.1` | [`14c715c`](https://github.com/joomengine/mcp_component/commit/14c715c50c2cc29fd3c8cc3c4780442efb507398) |
+| Console plugin | `0.1.0`; needed for local console serving | [`9935228`](https://github.com/joomengine/mcp_plugin/commit/993522852770e2f8968ab066deedef00f174d8c7) |
+| Joomla site | Joomla 6.1+ | Packaged Joomla installation in the interoperability fixture |
+
+The release workflow must pass against these exact component/plugin revisions before publishing the client tag. [Implementation evidence](docs/IMPLEMENTATION.md) records test scope; [release instructions](docs/RELEASE.md) provide the immutable workflow inputs.
 
 ### Connect an AI application
 
@@ -56,14 +77,14 @@ The final command waits for MCP JSON-RPC on stdin and writes protocol replies to
 
 Run `realpath vendor/bin/joomengine-mcp` on Linux to obtain the launcher command. On Windows, use Composer's generated `vendor/bin/joomengine-mcp.bat` launcher. The client discovers tools, resources and prompts from the authenticated server; the AI application does not need a copied Joomla/JCB catalogue. An explicit URL argument to `connect` overrides `JOOMENGINE_MCP_URL`.
 
-To install the executable globally instead of in a project:
+To install the stable executable globally instead of in a project, once 1.0.0 is indexed:
 
 ```bash
-composer global require joomengine/mcp-client:dev-main
+composer global require 'joomengine/mcp-client:^1.0'
 composer global config bin-dir --absolute
 ```
 
-Add the directory printed by the second command to your `PATH`, or give the AI launcher the absolute executable path in that directory. Then `joomengine-mcp connect` uses the same URL/token environment variables. Project-local installations use `./vendor/bin/joomengine-mcp`; a global executable is only available as a bare command when its directory is on `PATH`.
+For the development fallback, use `composer global require joomengine/mcp-client:dev-main`. Add the directory printed by the second command to your `PATH`, or give the AI launcher the absolute executable path in that directory. Then `joomengine-mcp connect` uses the same URL/token environment variables. Project-local installations use `./vendor/bin/joomengine-mcp`; a global executable is only available as a bare command when its directory is on `PATH`.
 
 ### Save a named site
 
