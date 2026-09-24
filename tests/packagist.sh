@@ -5,10 +5,27 @@ set -Eeuo pipefail
 test_directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 export PACKAGIST_REPORT_PATH=${PACKAGIST_REPORT_PATH:-"$test_directory/../build/packagist/consumer.json"}
 constraint=${1:-auto}
+expected_reference=${PACKAGIST_EXPECTED_REFERENCE:-}
+wait_for_index=${PACKAGIST_WAIT_FOR_INDEX:-false}
 if (( $# > 1 )) || [[ -z "$constraint" ]]; then
 	printf 'Usage: bash tests/packagist.sh [auto|COMPOSER_VERSION_CONSTRAINT]\n' >&2
 	exit 2
 fi
+if [[ "$wait_for_index" != true && "$wait_for_index" != false ]]; then
+	printf 'PACKAGIST_WAIT_FOR_INDEX must be true or false.\n' >&2
+	exit 2
+fi
+if [[ -n "$expected_reference" && ! "$expected_reference" =~ ^[0-9a-f]{40}$ ]]; then
+	printf 'PACKAGIST_EXPECTED_REFERENCE must be a full lowercase Git commit SHA.\n' >&2
+	exit 2
+fi
+if [[ "$wait_for_index" == true || -n "$expected_reference" ]]; then
+	if [[ ! "$constraint" =~ ^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]; then
+		printf 'Release verification requires an exact MAJOR.MINOR.PATCH version, optionally with -alpha.N, -beta.N or -rc.N.\n' >&2
+		exit 2
+	fi
+fi
+export PACKAGIST_EXPECTED_REFERENCE="$expected_reference"
 for executable in php composer curl node openssl timeout; do
 	if ! command -v "$executable" >/dev/null 2>&1; then
 		printf 'Packagist consumer tests require %s.\n' "$executable" >&2
@@ -50,8 +67,42 @@ cat > "$COMPOSER" <<'JSON'
 }
 JSON
 
+if [[ "$wait_for_index" == true ]]; then
+	printf 'Waiting up to 300 seconds for Packagist to index joomengine/mcp-client %s.\n' "$constraint"
+	index_deadline=$((SECONDS + 300))
+	while true; do
+		remaining=$((index_deadline - SECONDS))
+		if (( remaining <= 0 )); then
+			printf 'Packagist did not index %s within 300 seconds; no package was substituted.\n' "$constraint" >&2
+			exit 1
+		fi
+		request_timeout=$((remaining < 30 ? remaining : 30))
+		# Read public Composer metadata only. HTTP failures are fatal; only an
+		# otherwise valid index missing the requested tag is polled again.
+		curl --disable --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+			--connect-timeout 15 --max-time "$request_timeout" \
+			'https://repo.packagist.org/p2/joomengine/mcp-client.json' \
+			--output "$consumer_directory/packagist.json"
+		if php "$test_directory/consumer.php" --index-ready "$consumer_directory/packagist.json" \
+			"$constraint" "$expected_reference"; then
+			break
+		else
+			index_status=$?
+			if (( index_status != 3 )); then
+				exit "$index_status"
+			fi
+		fi
+		remaining=$((index_deadline - SECONDS))
+		if (( remaining > 0 )); then
+			printf 'Release %s is not indexed yet; checking again in %s seconds.\n' \
+				"$constraint" "$((remaining < 15 ? remaining : 15))"
+			sleep "$((remaining < 15 ? remaining : 15))"
+		fi
+	done
+fi
+
 if [[ "$constraint" == auto ]]; then
-	curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+	curl --disable --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
 		--connect-timeout 15 --max-time 60 \
 		'https://repo.packagist.org/p2/joomengine/mcp-client.json' \
 		--output "$consumer_directory/packagist.json"

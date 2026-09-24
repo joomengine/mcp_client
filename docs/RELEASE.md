@@ -17,31 +17,30 @@ composer check-platform-reqs
 
 Until indexing completes, `composer require joomengine/mcp-client:dev-main` remains the explicit development fallback. Existing development users can switch to stable with `composer require 'joomengine/mcp-client:^1.0' --with-dependencies`. Composer installs the executable proxy under the consuming project's `vendor/bin`; this is distinct from `bin/joomengine-mcp` in a source checkout.
 
-## First stable release inputs
+## First stable release manifest
 
 The client follows its own semantic versioning: **1.0.0** identifies the first stable external client API and executable. The installed component currently declares **0.1.1**, and the console plugin declares **0.1.0**. These package versions do not need to match. Interoperability is tested against concrete source revisions and the installed MCP protocol.
 
-Run [**Tested client release**](https://github.com/joomengine/mcp_client/actions/workflows/release.yml) from `main` containing the release preparation, with:
+The reviewed [`release.json`](../release.json) declares these first-release inputs:
 
-| Workflow field | Exact value |
+| Manifest field | Exact value |
 | --- | --- |
-| Use workflow from | `main` |
 | `version` | `1.0.0` |
 | `component_ref` | `14c715c50c2cc29fd3c8cc3c4780442efb507398` |
 | `plugin_ref` | `993522852770e2f8968ab066deedef00f174d8c7` |
 
-These immutable component/plugin refs are the release-test targets. The workflow records the actual client revision and installs the component/plugin in its Joomla 6.1+ fixture on PHP 8.3 and 8.4. Preparing these inputs is not evidence that the release workflow has run or that `v1.0.0` exists.
+These immutable component/plugin refs are the release-test targets. [**Tested client release**](https://github.com/joomengine/mcp_client/actions/workflows/release.yml) records the actual client revision and installs the component/plugin in its Joomla 6.1+ fixture on PHP 8.3 and 8.4. The manifest declares intent; it is not evidence that `v1.0.0` has been published or indexed.
 
-From an authenticated GitHub CLI, the equivalent dispatch is:
+## Publish through review and merge
 
-```bash
-gh workflow run release.yml \
-  --repo joomengine/mcp_client \
-  --ref main \
-  --field version=1.0.0 \
-  --field component_ref=14c715c50c2cc29fd3c8cc3c4780442efb507398 \
-  --field plugin_ref=993522852770e2f8968ab066deedef00f174d8c7
-```
+1. Update `release.json` with the new client semantic version and the full component/plugin commit IDs to test. Add that version's changes to `CHANGELOG.md`; `composer.json` continues to omit a version property.
+2. Open a pull request. The release workflow validates the proposed manifest with read-only permissions. Pull requests cannot create tags or releases. Source, Docker and installed interoperability checks validate the proposed client changes separately.
+3. Review and merge the PR into `main`. The main-branch release workflow reads the manifest. A new version triggers the full release tests before any tag is created; an existing completed version on a later main-branch push is skipped without moving or overwriting its tag.
+4. After the tests pass, the workflow tags the tested client commit and creates its GitHub release. It then waits a bounded time for Packagist indexing and invokes consumer verification against that exact version and source commit on both supported PHP versions.
+
+Future releases use the same process: bump the manifest and changelog in a reviewed PR, then merge. Merging ordinary changes with an already published manifest version does not republish it. Stable `X.Y.Z` versions and `alpha.N`, `beta.N` or `rc.N` prereleases are supported; prerelease tags produce GitHub prereleases.
+
+Manual `workflow_dispatch` remains available on `main` for explicit release operations. Inputs default to the manifest and may be overridden; component/plugin refs are resolved to immutable commit IDs before testing. It uses the same validation, test gates, immutable-tag protection and consumer verification; it is not required for normal publication after merging a new manifest version.
 
 ## Keep Packagist synchronized
 
@@ -65,22 +64,24 @@ The consumer test resolves the public package in a new Composer project without 
 
 For stable package versions 1.0.0 or later, consumer evidence must report `legacyProtocolHeaderRequests: 0`: every post-initialization SDK request must carry its negotiated `MCP-Protocol-Version`. The fixture retains the component's missing-header compatibility for the older development package and records it explicitly; that compatibility cannot hide a missing-header regression in a stable release.
 
-`composer test:packagist -- 1.0.0` checks the exact first stable release after indexing; `composer test:packagist -- dev-main` explicitly selects development. With no argument, the runner selects the latest compatible stable version when available, falling back to `dev-main` when no stable release is indexed. The [Packagist consumer workflow](https://github.com/joomengine/mcp_client/actions/workflows/packagist.yml) runs on PHP 8.3 and 8.4 for pull requests and main-branch pushes, and supports a manual version input. CI retains the installation and fixture evidence as artifacts.
+`composer test:packagist -- 1.0.0` checks the exact first stable release after indexing; `composer test:packagist -- dev-main` explicitly selects development. With no argument, the runner selects the latest compatible stable version when available, falling back to `dev-main` when no stable release is indexed. The [Packagist consumer workflow](https://github.com/joomengine/mcp_client/actions/workflows/packagist.yml) runs on PHP 8.3 and 8.4 for pull requests and main-branch pushes, supports a manual version input, and is reusable by the release workflow. CI retains the installation and fixture evidence as artifacts.
+
+For a release, the caller supplies the exact version and expected source commit. Only Packagist's indexing delay is retried within the configured time bound. Once metadata identifies the expected release, Composer installation and protocol tests run once: download, dependency, certificate or behaviour failures fail the workflow. If indexing times out, the workflow fails visibly and preserves its evidence; it does not substitute `dev-main` or another version.
 
 On a PR, the registry install tests the version already indexed by Packagist, not unpublished PR code. The separate PHP contract and Docker checks exercise the proposed source. Neither layer substitutes for installed Joomla acceptance.
 
 ## Tested release workflow
 
-Run **Tested client release** on main with a semantic version without `v`, plus the component and console-plugin refs to test. Prefer immutable tags or full commit IDs for the dependencies. The workflow accepts stable versions and `alpha.N`, `beta.N` or `rc.N` prereleases.
-
 Before creating a tag, it runs the full PHP 8.3/8.4 contract/TLS suite, the Docker Compose build/HTTPS suites on both PHP versions, and the installed Joomla interoperability workflow using that same client commit. The installed workflow records all three actual commit IDs. Any failed job prevents tagging. Releases cannot run from pull requests, and existing tags are never moved or overwritten.
 
-After testing, the workflow creates the tag and matching GitHub release, setting prerelease status when appropriate. Packagist's configured integration should index the tag; verify that externally rather than assuming it occurred. If release creation fails after tagging, inspect the existing tag and complete its release without moving the tag.
+After testing, the workflow creates the tag and matching GitHub release, setting prerelease status when appropriate. Packagist's configured integration should index the tag; the subsequent consumer job verifies this externally. A failed post-publication check leaves the immutable tag and release intact for diagnosis. Retrying the original workflow at the same client commit can repeat registry verification for an already published version.
+
+If tag creation succeeded but GitHub release creation failed, the workflow can recover the missing release only when the tag resolves to the exact tested client commit. An orphan tag at another commit, an existing draft release, or an API authentication, rate-limit or network failure stops publication instead of being treated as an absent release. Existing tags are never moved to repair a failed run.
 
 After Packagist indexes the tag:
 
 1. Confirm the exact version and source commit in `composer show --all joomengine/mcp-client` and on the [package page](https://packagist.org/packages/joomengine/mcp-client).
-2. Run **Packagist consumer** manually with that exact version. Both PHP versions must pass against the downloaded distribution.
+2. Confirm that the release workflow's **Packagist consumer** checks passed for the exact version and source commit on both PHP versions. The standalone manual consumer workflow remains available for later verification.
 3. Confirm the standard [Packagist release badge](https://img.shields.io/packagist/v/joomengine/mcp-client) shows the indexed stable version and that the exact-version consumer report records the tag's source commit with no missing SDK protocol headers. Retain the release and consumer workflow evidence. The `^1.0` installation command supports subsequent compatible stable 1.x releases.
 
 For local installed acceptance, supply `JOOMENGINE_MCP_URL` and `JOOMENGINE_MCP_TOKEN` and run `php tests/live.php`; a private test CA can be configured through PHP's `curl.cainfo`. Missing configuration fails. Full component/JCB write and job acceptance remains owned by the installed component's fixture, rather than a duplicated business-operation catalogue in this package.

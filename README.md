@@ -52,7 +52,7 @@ The client, installed component and console plugin have independent version numb
 | Console plugin | `0.1.0`; needed for local console serving | [`9935228`](https://github.com/joomengine/mcp_plugin/commit/993522852770e2f8968ab066deedef00f174d8c7) |
 | Joomla site | Joomla 6.1+ | Packaged Joomla installation in the interoperability fixture |
 
-The release workflow must pass against these exact component/plugin revisions before publishing the client tag. [Implementation evidence](docs/IMPLEMENTATION.md) records test scope; [release instructions](docs/RELEASE.md) provide the immutable workflow inputs.
+The reviewed [release manifest](release.json) declares the version and exact component/plugin revisions. After its pull request is merged into `main`, the release workflow tests that client commit and publishes a new version only when all release checks pass. It then verifies the exact version and source commit installed from Packagist on PHP 8.3 and 8.4. The manifest declares release intent; the live badge and package listing show actual publication. [Implementation evidence](docs/IMPLEMENTATION.md) records test scope, and [release instructions](docs/RELEASE.md) explain subsequent version updates.
 
 ### Connect an AI application
 

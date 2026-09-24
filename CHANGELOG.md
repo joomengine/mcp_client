@@ -12,7 +12,8 @@ Changes for the first stable client release. Publication is recorded by the [`v1
 - Concurrent remote forwarding of HTTP identity, JSON-RPC/session metadata, pagination, finite SSE events, cancellation notifications and structured job results.
 - Complete non-root Docker image and read-only Compose service, using a site URL and API token through environment variables.
 - PHP 8.3/8.4 source contracts, TLS and process tests, real Compose checks and packaged Joomla interoperability acceptance.
-- Main-only stable/prerelease automation gated on client, Docker and installed Joomla checks, with immutable first-release component/plugin inputs documented.
+- Reviewed `release.json` manifest with an independent client version and immutable component/plugin revisions; pull requests validate the release plan without publishing.
+- Automatic publication after merge to `main`, gated on client, Docker and installed Joomla checks; existing versions are never overwritten and manual dispatch remains available.
 - Packagist metadata, stable-version/download badges, release links, Composer-first local/global installation, AI launcher setup and a complete PHP discovery example.
 - Stable `^1.0` installation instructions with an explicit `dev-main` fallback before publication and for development testing.
 - PHP 8.3/8.4 consumer checks that download the actual Packagist distribution into a clean project and exercise its generated executable and SDK against trusted local HTTPS.
@@ -27,3 +28,4 @@ Changes for the first stable client release. Publication is recorded by the [`v1
 - Consumer evidence identifies the downloaded version and commit and records SDK requests missing their negotiated protocol header. This compatibility diagnostic supports the older development package; stable versions from 1.0.0 must report zero missing SDK protocol headers.
 - The stdio bridge must send the negotiated protocol header, and the fixture rejects incorrect supplied revisions for both SDK and stdio clients.
 - Packagist synchronization and exact-version consumer verification are documented separately from source tests and installed Joomla acceptance.
+- Release automation waits a bounded time for Packagist to index the new version, then verifies that exact version and source commit with the consumer suite on PHP 8.3 and 8.4. Installation and protocol failures fail the workflow without retries.

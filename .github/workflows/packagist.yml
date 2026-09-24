@@ -11,12 +11,38 @@ on:
         default: auto
         required: false
         type: string
+      expected_reference:
+        description: 'Optional full commit SHA that the installed public package must contain'
+        default: ''
+        required: false
+        type: string
+      wait_for_index:
+        description: 'Wait up to five minutes for the exact release version to appear in Packagist'
+        default: false
+        required: false
+        type: boolean
+  workflow_call:
+    inputs:
+      version:
+        description: 'Exact Packagist release version to install, for example 1.0.0'
+        required: true
+        type: string
+      expected_reference:
+        description: 'Optional full release commit SHA to verify against the installed package'
+        default: ''
+        required: false
+        type: string
+      wait_for_index:
+        description: 'Wait up to five minutes for the exact release version to appear in Packagist'
+        default: false
+        required: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: packagist-consumer-${{ github.ref }}
+  group: packagist-consumer-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,6 +66,8 @@ jobs:
       - name: Install the public Packagist package and test it as an independent consumer
         env:
           MCP_PACKAGE_VERSION: ${{ inputs.version || 'auto' }}
+          PACKAGIST_EXPECTED_REFERENCE: ${{ inputs.expected_reference || '' }}
+          PACKAGIST_WAIT_FOR_INDEX: ${{ inputs.wait_for_index && 'true' || 'false' }}
           PACKAGIST_REPORT_PATH: ${{ github.workspace }}/build/packagist/consumer.json
         run: |
           set -euo pipefail

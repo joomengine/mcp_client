@@ -5,6 +5,63 @@ use VDM\Joomla\Mcp\Client\ClientFactory;
 use VDM\Joomla\Mcp\Client\Connection;
 
 
+// Run before loading any package: only a public Packagist p2 response is needed
+// to determine whether a newly published, exact release is ready to install.
+if (($argv[1] ?? '') === '--index-ready')
+{
+	$metadata = json_decode(file_get_contents($argv[2]), true, 512, JSON_THROW_ON_ERROR);
+	$target = ltrim($argv[3] ?? '', 'v');
+	$expected = $argv[4] ?? '';
+	$versions = $metadata['packages']['joomengine/mcp-client'] ?? null;
+	if (!is_array($versions) || !array_is_list($versions)
+		|| (isset($metadata['minified']) && $metadata['minified'] !== 'composer/2.0'))
+	{
+		throw new RuntimeException('Invalid public Packagist version metadata.');
+	}
+	$expanded = [];
+	foreach ($versions as $version)
+	{
+		if (!is_array($version))
+		{
+			throw new RuntimeException('Invalid public Packagist version entry.');
+		}
+		if (($metadata['minified'] ?? '') === 'composer/2.0')
+		{
+			// Composer p2 entries inherit unchanged top-level fields from their
+			// predecessor; the literal __unset marker removes an inherited key.
+			foreach ($version as $key => $value)
+			{
+				if ($value === '__unset')
+				{
+					unset($expanded[$key]);
+				}
+				else
+				{
+					$expanded[$key] = $value;
+				}
+			}
+		}
+		else
+		{
+			$expanded = $version;
+		}
+		if (ltrim($expanded['version'] ?? '', 'v') !== $target)
+		{
+			continue;
+		}
+		$indexedReference = $expanded['source']['reference'] ?? '';
+		if (($expanded['source']['url'] ?? '') !== 'https://github.com/joomengine/mcp_client.git'
+			|| preg_match('/\A[0-9a-f]{40}\z/D', $indexedReference) !== 1
+			|| ($expected !== '' && $indexedReference !== $expected))
+		{
+			throw new RuntimeException('The indexed release does not match the expected repository and release commit.');
+		}
+		echo 'Packagist indexed joomengine/mcp-client ' . $expanded['version'] . ' at ' . $indexedReference . PHP_EOL;
+		exit(0);
+	}
+	exit(3);
+}
+
 $consumer = realpath($argv[1] ?? '');
 $site = $argv[2] ?? '';
 $audit = $argv[3] ?? '';
@@ -42,6 +99,12 @@ $installed = json_decode(file_get_contents($consumer . '/vendor/composer/install
 $installedPackages = array_column($installed['packages'] ?? $installed, null, 'name');
 $check(($installedPackages['joomengine/mcp-client']['installation-source'] ?? null) === 'dist', 'Composer installed the actual package distribution archive');
 echo 'Installed joomengine/mcp-client ' . $version . ' at ' . $reference . PHP_EOL;
+$expectedReference = getenv('PACKAGIST_EXPECTED_REFERENCE');
+if (is_string($expectedReference) && $expectedReference !== '')
+{
+	$check(preg_match('/\A[0-9a-f]{40}\z/D', $expectedReference) === 1 && $reference === $expectedReference,
+		'installed public package contains the exact expected release commit');
+}
 
 foreach ([Connection::class, ClientFactory::class, VDM\Joomla\Mcp\Client\Bridge\StdioBridge::class,
 	VDM\Joomla\Mcp\Client\Http\CurlClient::class, VDM\Joomla\Mcp\Client\Http\MultiClient::class] as $class)
@@ -226,6 +289,7 @@ if (preg_match('/\Av?\d+\.\d+\.\d+\z/D', $version ?? '') === 1
 }
 
 $evidence = ['package' => 'joomengine/mcp-client', 'version' => $version, 'reference' => $reference,
+	'expectedReference' => is_string($expectedReference) && $expectedReference !== '' ? $expectedReference : null,
 	'php' => PHP_VERSION, 'checks' => $passed, 'legacyProtocolHeaderRequests' => $legacyRequests,
 	'fixture' => 'loopback HTTPS protocol fixture with component-compatible legacy header handling; no installed Joomla site'];
 $report = json_encode($evidence, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL;
