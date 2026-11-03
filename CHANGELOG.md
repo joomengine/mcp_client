@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Support installable component source ZIPs and the independent webservices plugin in installed client CI while retaining legacy release-pinned builds.
+- Record source revisions before package setup and retain setup, integration and source-package evidence.
+
 ## 1.0.0
 
 Changes for the first stable client release. Publication is recorded by the [`v1.0.0` GitHub release](https://github.com/joomengine/mcp_client/releases/tag/v1.0.0) and [Packagist version history](https://packagist.org/packages/joomengine/mcp-client); this entry alone does not establish availability. Client versions are independent of component/plugin versions; the selected interoperability targets are component 0.1.1 and console plugin 0.1.0.

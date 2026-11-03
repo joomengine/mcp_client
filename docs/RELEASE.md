@@ -72,7 +72,7 @@ On a PR, the registry install tests the version already indexed by Packagist, no
 
 ## Tested release workflow
 
-Before creating a tag, it runs the full PHP 8.3/8.4 contract/TLS suite, the Docker Compose build/HTTPS suites on both PHP versions, and the installed Joomla interoperability workflow using that same client commit. The installed workflow records all three actual commit IDs. Any failed job prevents tagging. Releases cannot run from pull requests, and existing tags are never moved or overwritten.
+Before creating a tag, it runs the full PHP 8.3/8.4 contract/TLS suite, the Docker Compose build/HTTPS suites on both PHP versions, and the installed Joomla interoperability workflow using that same client commit. The installed workflow records the client, component, console-plugin and webservices-plugin commit IDs before setup. It preserves legacy build steps for the existing release pins and validates source ZIPs for modern component revisions. The old pinned runner does not use the independent webservices checkout; a future release targeting the modern layout must also pin that plugin through the release manifest and planning workflow. Any failed job prevents tagging. Releases cannot run from pull requests, and existing tags are never moved or overwritten.
 
 After testing, the workflow creates the tag and matching GitHub release, setting prerelease status when appropriate. Packagist's configured integration should index the tag; the subsequent consumer job verifies this externally. A failed post-publication check leaves the immutable tag and release intact for diagnosis. Retrying the original workflow at the same client commit can repeat registry verification for an already published version.
 
