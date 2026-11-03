@@ -27,6 +27,8 @@ jobs:
           extensions: curl, json, fileinfo, posix, pcntl
           tools: composer:v2
           coverage: none
+      - name: Installed workflow setup contracts
+        run: bash tests/installed-setup.sh
       - run: composer validate --strict --no-check-publish
       - run: composer install --no-interaction --prefer-dist --no-progress
       - name: PHP syntax

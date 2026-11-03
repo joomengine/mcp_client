@@ -1,10 +1,12 @@
-# Implementation status — 24 September 2026
+# Implementation status
 
 The standalone PHP client and remote stdio bridge from [PR #1](https://github.com/joomengine/mcp_client/pull/1) are merged into `main`. Component and console-plugin business logic remain in their own repositories. [Repository workflows](https://github.com/joomengine/mcp_client/actions) record current checks; the [component acceptance checklist](https://github.com/joomengine/mcp_component/pull/1#issuecomment-5732685349) records coordinated Joomla/JCB execution through the installed server and this generic bridge.
 
 **First stable release preparation, 24 September 2026:** [PR #2](https://github.com/joomengine/mcp_client/pull/2) prepares client **1.0.0**, independently versioned from the installed component (**0.1.1**) and console plugin (**0.1.0**). The [release manifest](../release.json) pins component `14c715c50c2cc29fd3c8cc3c4780442efb507398` and plugin `993522852770e2f8968ab066deedef00f174d8c7` for the Joomla 6.1+ installed fixture. [Release instructions](RELEASE.md#first-stable-release-manifest) record these inputs and the review/merge process. Each release run must record and pass against its selected sources before publishing. Current publication status is shown by [GitHub Releases](https://github.com/joomengine/mcp_client/releases) and [Packagist](https://packagist.org/packages/joomengine/mcp-client), independently of this preparation record.
 
 [Installed interoperability run 35988304612](https://github.com/joomengine/mcp_client/actions/runs/35988304612) passed on PHP 8.3 and 8.4 against those exact component/plugin revisions. This is existing compatibility evidence; the release workflow still retests its own client commit before tagging.
+
+**Installed workflow maintenance, 3 November 2026:** the component's source-ZIP migration removed the build scripts used by older releases and separated the webservices plugin. Installed client CI now checks out all companion extensions, records all four revisions before setup, validates the current source package and supplies the webservices path to the component-owned fixture. Legacy build steps remain supported for the unchanged `1.0.0` release manifest. Offline setup regression tests cover both layouts and failure propagation; current installed acceptance is established by the workflow results for the proposed client commit.
 
 Implemented:
 
@@ -25,7 +27,7 @@ Implemented:
 
 Evidence is emitted by each test suite and retained by CI. `tests/run.php` uses the actual PHP SDK with recording HTTP substitutes. `tests/cli.php` checks safe executable startup failures and environment/argument precedence. `tests/bridge.php` launches a real bridge process with a deterministic transport. `tests/http.sh` creates a private test CA and real HTTPS server, verifies transport limits/TLS failures and launches the public executable using only URL/token environment configuration. `tests/container.sh` builds the Docker image and exercises the delivered Compose service against that HTTPS fixture; it requires a Linux Docker engine and does not silently skip missing Docker. `tests/live.php` uses actual installed Joomla HTTP and remote stdio, discovers the server catalogue, executes discovered reads and rejects invalid credentials. Missing live test configuration fails instead of reporting a skipped pass.
 
-An installed CI success is tied to the exact component, plugin and client revisions recorded in its artifact. Do not infer production approval, JCB write acceptance or publication from isolated client checks. The component repository owns its full write/job/JCB acceptance matrix.
+An installed CI success is tied to the exact component, console-plugin, webservices-plugin and client revisions recorded in its artifact. Do not infer production approval, JCB write acceptance or publication from isolated client checks. The component repository owns its full write/job/JCB acceptance matrix.
 
 Packagist registration is verified through the public [`joomengine/mcp-client` metadata](https://packagist.org/packages/joomengine/mcp-client.json). On 24 September 2026 it indexed `dev-main` from this repository at `8691e3556254e314f3a106fb933756cf502e4780`; no tagged version was present. Registration is distinct from a stable release and does not prove automatic webhook synchronization. [Release documentation](RELEASE.md) covers synchronization checks and first-release verification.
 

@@ -12,6 +12,9 @@ on:
       plugin_ref:
         type: string
         default: main
+      webservices_ref:
+        type: string
+        default: main
 
 permissions:
   contents: read
@@ -53,6 +56,19 @@ jobs:
           ref: ${{ inputs.plugin_ref || 'main' }}
           path: plugin
           persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: joomengine/mcp_webservices
+          ref: ${{ inputs.webservices_ref || 'main' }}
+          path: webservices
+          persist-credentials: false
+      - name: Record exact source revisions
+        run: |
+          mkdir -p component/build/evidence
+          for repository in client component plugin webservices; do
+            printf '%s ' "$repository"
+            git -C "$repository" rev-parse HEAD
+          done | tee component/build/evidence/source-revisions.log
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -62,18 +78,11 @@ jobs:
       - name: Install the actual client dependencies
         working-directory: client
         run: composer install --no-interaction --prefer-dist --no-progress
-      - name: Build the installed component package
-        working-directory: component
+      - name: Validate or build the selected component package
+        working-directory: client
         run: |
-          bash tools/build.sh
-          bash tools/build-distribution.sh
-      - name: Record exact source revisions
-        run: |
-          mkdir -p component/build/evidence
-          for repository in client component plugin; do
-            printf '%s ' "$repository"
-            git -C "$repository" rev-parse HEAD
-          done | tee component/build/evidence/source-revisions.log
+          set -euo pipefail
+          bash tools/prepare-installed.sh ../component 2>&1 | tee ../component/build/evidence/package-setup.log
       - name: Exercise packaged Joomla and client through authenticated HTTPS
         working-directory: component
         env:
@@ -85,12 +94,19 @@ jobs:
           MCP_TEST_DB_PASS: disposable-test-password
           MCP_TEST_DB_NAME: mcp_fixture
           MCP_PLUGIN_SOURCE: ${{ github.workspace }}/plugin
+          MCP_WEBSERVICES_SOURCE: ${{ github.workspace }}/webservices
           MCP_CLIENT_SOURCE: ${{ github.workspace }}/client
-        run: bash tests/integration/run.sh
+        run: |
+          set -euo pipefail
+          bash tests/integration/run.sh 2>&1 | tee build/evidence/integration.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: installed-client-php-${{ matrix.php }}
-          path: component/build/evidence/
+          path: |
+            component/build/evidence/
+            component/build/component-source.zip
+            component/build/console-plugin-source.zip
+            component/build/webservices-plugin-source.zip
           if-no-files-found: error
           retention-days: 7
