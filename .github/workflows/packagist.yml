@@ -66,13 +66,23 @@ jobs:
       - name: Install the public Packagist package and test it as an independent consumer
         env:
           MCP_PACKAGE_VERSION: ${{ inputs.version || 'auto' }}
+          CANDIDATE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || '' }}
           PACKAGIST_EXPECTED_REFERENCE: ${{ inputs.expected_reference || '' }}
           PACKAGIST_WAIT_FOR_INDEX: ${{ inputs.wait_for_index && 'true' || 'false' }}
           PACKAGIST_REPORT_PATH: ${{ github.workspace }}/build/packagist/consumer.json
         run: |
           set -euo pipefail
           mkdir -p build/packagist
+          if [[ -n "$CANDIDATE_BRANCH" && "$MCP_PACKAGE_VERSION" == auto ]]; then
+            # Test the publicly indexed candidate that this PR proposes to ship.
+            # The release workflow continues to require the exact tagged stable distribution.
+            MCP_PACKAGE_VERSION="dev-${CANDIDATE_BRANCH}#${CANDIDATE_SHA}"
+          fi
           bash tests/packagist.sh "$MCP_PACKAGE_VERSION" 2>&1 | tee build/packagist/consumer.log
+          if [[ -n "$CANDIDATE_BRANCH" ]]; then
+            jq -e --arg sha "$CANDIDATE_SHA" '.reference == $sha' "$PACKAGIST_REPORT_PATH"
+          fi
       - name: Preserve the resolved package and consumer evidence
         if: always()
         uses: actions/upload-artifact@v7
