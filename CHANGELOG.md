@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 ### Fixed
+
+- Allow fresh Composer installs with the patched MCP PHP SDK 0.9 series and preserve the public PHP client type.
+- Open Joomla sessions using the handshake supported by the native package. The server can negotiate its supported revision.
 
 - Support installable component source ZIPs and the independent webservices plugin in installed client CI while retaining legacy release-pinned builds.
 - Record source revisions before package setup and retain setup, integration and source-package evidence.

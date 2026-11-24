@@ -66,22 +66,24 @@ jobs:
       - name: Install the public Packagist package and test it as an independent consumer
         env:
           MCP_PACKAGE_VERSION: ${{ inputs.version || 'auto' }}
-          CANDIDATE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
-          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          CANDIDATE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || github.event_name == 'push' && github.ref_name || '' }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PACKAGIST_EXPECTED_REFERENCE: ${{ inputs.expected_reference || '' }}
           PACKAGIST_WAIT_FOR_INDEX: ${{ inputs.wait_for_index && 'true' || 'false' }}
           PACKAGIST_REPORT_PATH: ${{ github.workspace }}/build/packagist/consumer.json
         run: |
           set -euo pipefail
           mkdir -p build/packagist
+          candidate_sha=''
           if [[ -n "$CANDIDATE_BRANCH" && "$MCP_PACKAGE_VERSION" == auto ]]; then
-            # Test the publicly indexed candidate that this PR proposes to ship.
+            # Exercise the publicly indexed source that triggered this run.
             # The release workflow continues to require the exact tagged stable distribution.
-            MCP_PACKAGE_VERSION="dev-${CANDIDATE_BRANCH}#${CANDIDATE_SHA}"
+            candidate_sha="$CANDIDATE_SHA"
+            MCP_PACKAGE_VERSION="dev-${CANDIDATE_BRANCH}#${candidate_sha}"
           fi
           bash tests/packagist.sh "$MCP_PACKAGE_VERSION" 2>&1 | tee build/packagist/consumer.log
-          if [[ -n "$CANDIDATE_BRANCH" ]]; then
-            jq -e --arg sha "$CANDIDATE_SHA" '.reference == $sha' "$PACKAGIST_REPORT_PATH"
+          if [[ -n "$candidate_sha" ]]; then
+            jq -e --arg sha "$candidate_sha" '.reference == $sha' "$PACKAGIST_REPORT_PATH"
           fi
       - name: Preserve the resolved package and consumer evidence
         if: always()
