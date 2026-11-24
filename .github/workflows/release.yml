@@ -34,17 +34,25 @@ jobs:
       publish: ${{ steps.plan.outputs.publish }}
       verify: ${{ steps.plan.outputs.verify }}
       version: ${{ steps.plan.outputs.version }}
-      component_ref: ${{ steps.plan.outputs.component_ref }}
-      plugin_ref: ${{ steps.plan.outputs.plugin_ref }}
+      manifest_changed: ${{ steps.declaration.outputs.manifest_changed }}
+      component_ref: ${{ steps.plan.outputs.component_ref || steps.declaration.outputs.component_ref }}
+      plugin_ref: ${{ steps.plan.outputs.plugin_ref || steps.declaration.outputs.plugin_ref }}
       client_ref: ${{ steps.plan.outputs.client_ref }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 2
           persist-credentials: false
       - name: Validate the declaration and release-state behavior without publishing
+        id: declaration
         run: |
-          bash tools/release-plan.sh validate
+          set -euo pipefail
+          bash tools/release-plan.sh validate | tee -a "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            changed=$(git diff --name-only HEAD^1 HEAD -- release.json)
+            if [[ "$changed" == release.json ]]; then echo 'manifest_changed=true' >> "$GITHUB_OUTPUT"; fi
+          fi
           bash tests/release.sh
       - name: Plan the immutable release from the reviewed main commit
         id: plan
@@ -65,7 +73,7 @@ jobs:
       contents: read
   installed:
     needs: plan
-    if: needs.plan.outputs.publish == 'true'
+    if: needs.plan.outputs.publish == 'true' || needs.plan.outputs.manifest_changed == 'true'
     uses: ./.github/workflows/installed.yml
     with:
       component_ref: ${{ needs.plan.outputs.component_ref }}
