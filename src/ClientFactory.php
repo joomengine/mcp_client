@@ -12,6 +12,7 @@ namespace VDM\Joomla\Mcp\Client;
 use Composer\InstalledVersions;
 use Mcp\Client;
 use Mcp\Client\Transport\HttpTransport;
+use Mcp\Schema\Enum\ProtocolVersion;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Client\ClientInterface;
 use VDM\Joomla\Mcp\Client\Http\CurlClient;
@@ -52,6 +53,8 @@ final class ClientFactory
 		$factory = new Psr17Factory();
 		$client = Client::builder()
 			->setClientInfo('joomengine-mcp-client', $this->version())
+			// The Joomla package opens sessions with initialize and negotiates from this revision.
+			->setProtocolVersion(ProtocolVersion::V2025_11_25)
 			->setInitTimeout($connection->timeout())
 			->setRequestTimeout($connection->timeout())
 			->setMaxRetries(0)
